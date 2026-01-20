@@ -1,0 +1,43 @@
+{
+  "name": "briefings-oss",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx src/scripts/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "drizzle-orm": "^0.44.2",
+    "fast-xml-parser": "^4.3.4",
+    "hono": "^4.7.11",
+    "mustache": "^4.2.0",
+    "resend": "^4.0.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "@types/mustache": "^4.2.6",
+    "@types/node": "^22.14.0",
+    "drizzle-kit": "^0.31.1",
+    "esbuild": "^0.25.5",
+    "tsx": "^4.20.1",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.9",
+    "wrangler": "^4.16.0"
+  }
+}

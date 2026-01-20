@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1749572255450,
+      "tag": "0000_glorious_black_bolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1750080773862,
+      "tag": "0001_daily_grim_reaper",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1750081930177,
+      "tag": "0002_tough_punisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1750090022803,
+      "tag": "0003_ordinary_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1751025605430,
+      "tag": "0004_eager_colonel_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1751565368784,
+      "tag": "0005_slow_lord_tyger",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1751566717375,
+      "tag": "0007_add_feed_validation",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1768772230378,
+      "tag": "0007_ambitious_medusa",
+      "breakpoints": true
+    }
+  ]
+}

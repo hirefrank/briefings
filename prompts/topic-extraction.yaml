@@ -1,0 +1,20 @@
+id: topic-extraction
+name: Company and Topic Extraction
+description: Extracts prominent companies, technologies, products, or narrative-relevant topics from the weekly recap content.
+
+template: |
+  Analyze the following weekly news recap. Identify the 3–5 most prominent or narrative-relevant entities mentioned — including companies, technologies, specific products, people, or general topics.
+
+  Weekly Recap Text:
+  """
+  {{weeklyRecap}}
+  """
+
+  Instructions:
+  - Return ONLY a comma-separated list of the most important and distinctive entities.
+  - You may include both proper nouns (e.g., OpenAI, Apple Vision Pro) and broader topics (e.g., AI fatigue, open source licensing) if they are key to the narrative.
+  - Use canonical names where possible.
+  - Do not include explanations, numbers, or formatting other than the list.
+  - Do not include any introductory text.
+
+  Example: OpenAI, Apple, LLM coding fatigue, BuyMeACoffee, platform risk

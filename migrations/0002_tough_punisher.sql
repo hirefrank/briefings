@@ -1,0 +1,1 @@
+ALTER TABLE `WeeklySummary` ADD `feedGroupId` text;

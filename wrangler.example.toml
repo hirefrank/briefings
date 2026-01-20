@@ -1,0 +1,95 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "briefings-oss"
+main = "dist/index.js"
+workers_dev = true
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Replace with your Cloudflare account ID
+# Find at: https://dash.cloudflare.com/ -> Select Account -> Copy Account ID
+account_id = "your-cloudflare-account-id"
+
+# Observability
+[observability]
+enabled = true
+
+# Custom build configuration
+[build]
+command = "node build.mjs"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "production"
+R2_ENABLED = "true"
+TZ = "America/New_York"
+
+# Email settings (optional - configure via secrets)
+# EMAIL_FROM = "briefings@example.com"
+# EMAIL_TO = "you@example.com"
+
+# D1 Database
+# Create with: wrangler d1 create briefings-db
+# Then update database_id below with the ID from the output
+[[d1_databases]]
+binding = "DB"
+database_name = "briefings-db"
+database_id = "your-d1-database-id"
+
+# KV Namespace for configuration
+# Create with: wrangler kv:namespace create APP_CONFIG_KV
+# Then update id below with the ID from the output
+[[kv_namespaces]]
+binding = "APP_CONFIG_KV"
+id = "your-kv-namespace-id"
+
+# R2 Bucket for markdown output and digest history
+# Create with: wrangler r2 bucket create briefings-markdown-output
+[[r2_buckets]]
+binding = "MARKDOWN_OUTPUT_R2"
+bucket_name = "briefings-markdown-output"
+
+# Cron triggers
+[triggers]
+crons = [
+  "0 */4 * * *",     # Feed fetch - every 4 hours
+  "0 10 * * *",      # Daily summary - 10 AM UTC (adjust for your timezone)
+  "0 6 * * *"        # Validate feeds - 6 AM UTC (adjust for your timezone)
+]
+
+# Queue producers (4 simplified queues)
+[[queues.producers]]
+binding = "FEED_FETCH_QUEUE"
+queue = "briefings-feed-fetch"
+
+[[queues.producers]]
+binding = "DAILY_SUMMARY_INITIATOR_QUEUE"
+queue = "briefings-daily-summary-initiator"
+
+[[queues.producers]]
+binding = "DAILY_SUMMARY_PROCESSOR_QUEUE"
+queue = "briefings-daily-summary-processor"
+
+[[queues.producers]]
+binding = "WEEKLY_DIGEST_QUEUE"
+queue = "briefings-weekly-digest"
+
+# Queue consumers
+[[queues.consumers]]
+queue = "briefings-feed-fetch"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[[queues.consumers]]
+queue = "briefings-daily-summary-initiator"
+max_batch_size = 1
+max_batch_timeout = 30
+
+[[queues.consumers]]
+queue = "briefings-daily-summary-processor"
+max_batch_size = 5
+max_batch_timeout = 60
+
+[[queues.consumers]]
+queue = "briefings-weekly-digest"
+max_batch_size = 1
+max_batch_timeout = 120
