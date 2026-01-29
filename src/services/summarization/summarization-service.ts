@@ -1,4 +1,3 @@
-// @ts-nocheck - Legacy code with type mismatches, needs refactoring
 import type {
   ISummarizationService,
   IGeminiClient,
@@ -9,21 +8,16 @@ import type {
   GeneratedStructuredContent,
 } from '../../types/structured-summary.js';
 import { SummaryAdapter } from './summary-adapter.js';
-// Env type is globally defined
-import type { Db, articles, dailySummaries, weeklySummaries } from '../../db.js';
-import { eq, and, gte, lt, desc } from 'drizzle-orm';
-import type { InferSelectModel } from 'drizzle-orm';
+import type { Db } from '../../db.js';
+import type { Article, DailySummary, WeeklySummary, Feed } from '../../db/types.js';
+import { toTimestamp, fromTimestamp } from '../../db/helpers.js';
 import { Logger } from '../../lib/logger.js';
 import { ApiError, DatabaseError, ErrorCode } from '../../lib/errors.js';
 import { format, subDays, parseISO } from 'date-fns';
 import { DEFAULT_MODELS } from '../../lib/constants.js';
 import { renderPrompt, getPrompt } from '../../lib/prompts.js';
 
-type Article = InferSelectModel<typeof articles> & {
-  feed?: InferSelectModel<typeof import('../../db.js').feeds>;
-};
-type DailySummary = InferSelectModel<typeof dailySummaries>;
-type WeeklySummary = InferSelectModel<typeof weeklySummaries>;
+type ArticleWithFeed = Article & { feed?: Feed };
 
 /**
  * Service for generating and managing article summaries
@@ -44,7 +38,7 @@ export class SummarizationService implements ISummarizationService {
    * Generate a structured daily summary for a set of articles
    */
   async generateStructuredDailySummary(
-    articles: Article[],
+    articles: ArticleWithFeed[],
     feedName: string,
     date: Date,
     env: Env,
@@ -60,11 +54,9 @@ export class SummarizationService implements ISummarizationService {
       });
 
       if (articles.length === 0) {
-        // Return minimal structured summary for empty case
         return this.createEmptyStructuredSummary(feedName, date, startTime);
       }
 
-      // Limit articles to prevent token limit issues
       const MAX_ARTICLES_PER_SUMMARY = 10;
       const articlesToSummarize = articles.slice(0, MAX_ARTICLES_PER_SUMMARY);
 
@@ -76,10 +68,8 @@ export class SummarizationService implements ISummarizationService {
         });
       }
 
-      // Get related context from previous summaries
       const relatedContext = db ? await this.getRelatedContext(articles, db) : [];
 
-      // Build structured prompt for AI generation
       const prompt = await this.buildStructuredPrompt(
         articlesToSummarize,
         feedName,
@@ -87,7 +77,6 @@ export class SummarizationService implements ISummarizationService {
         relatedContext
       );
 
-      // Generate structured content with AI
       const generatedContent = await this.geminiClient.generateJSON<GeneratedStructuredContent>(
         prompt,
         {
@@ -97,7 +86,6 @@ export class SummarizationService implements ISummarizationService {
         }
       );
 
-      // Assemble complete structured summary
       const structuredSummary = this.assembleStructuredSummary(
         generatedContent,
         articlesToSummarize,
@@ -135,11 +123,7 @@ export class SummarizationService implements ISummarizationService {
             date: date.toISOString(),
             originalError:
               error instanceof Error
-                ? {
-                    message: error.message,
-                    name: error.name,
-                    stack: error.stack,
-                  }
+                ? { message: error.message, name: error.name, stack: error.stack }
                 : String(error),
           },
         }
@@ -148,10 +132,10 @@ export class SummarizationService implements ISummarizationService {
   }
 
   /**
-   * Generate a daily summary for a set of articles (legacy method - maintains backward compatibility)
+   * Generate a daily summary for a set of articles
    */
   async generateDailySummary(
-    articles: Article[],
+    articles: ArticleWithFeed[],
     feedName: string,
     date: Date,
     env: Env,
@@ -168,8 +152,7 @@ export class SummarizationService implements ISummarizationService {
         return '# No Articles\n\nNo articles were found for this date.';
       }
 
-      // Limit articles to prevent token limit issues
-      const MAX_ARTICLES_PER_SUMMARY = 10; // Increase back since model has 1M token limit
+      const MAX_ARTICLES_PER_SUMMARY = 10;
       const articlesToSummarize = articles.slice(0, MAX_ARTICLES_PER_SUMMARY);
 
       if (articles.length > MAX_ARTICLES_PER_SUMMARY) {
@@ -180,30 +163,28 @@ export class SummarizationService implements ISummarizationService {
         });
       }
 
-      // Get related context from previous summaries
       const relatedContext = db ? await this.getRelatedContext(articles, db) : [];
 
-      // Build context for template
       const templateContext = {
         feedName,
         date: format(date, 'yyyy-MM-dd'),
         displayDate: format(date, 'EEEE, MMMM d, yyyy'),
         articles: articlesToSummarize.map((article, index) => {
           const content = article.content || article.contentSnippet || '';
-          // Truncate individual article content to prevent token limits
-          const MAX_ARTICLE_CONTENT_LENGTH = 2000; // Per article limit
+          const MAX_ARTICLE_CONTENT_LENGTH = 2000;
           const truncatedContent =
             content.length > MAX_ARTICLE_CONTENT_LENGTH
               ? `${content.substring(0, MAX_ARTICLE_CONTENT_LENGTH - 3)}...`
               : content;
 
+          const pubDateObj = fromTimestamp(article.pubDate);
           return {
             title: article.title,
             link: article.link,
             content: truncatedContent,
-            contentSnippet: truncatedContent, // Use same truncated content
+            contentSnippet: truncatedContent,
             creator: article.creator,
-            pubDate: article.pubDate ? format(article.pubDate, 'PPpp') : null,
+            pubDate: pubDateObj ? format(pubDateObj, 'PPpp') : null,
             articleNumber: index + 1,
           };
         }),
@@ -211,27 +192,23 @@ export class SummarizationService implements ISummarizationService {
         relatedContext: relatedContext.join('\n\n'),
       };
 
-      // Render the prompt
       const prompt = renderPrompt(getPrompt('daily-summary'), templateContext);
 
-      // Generate summary with AI
       let summary: string;
       try {
         const response = await this.geminiClient.generateContent(prompt, {
           model: DEFAULT_MODELS.DAILY_SUMMARY,
           temperature: 0.7,
-          maxOutputTokens: 16384, // Model supports much higher output
+          maxOutputTokens: 16384,
         });
         summary = this.formatMarkdown(response.text);
       } catch (error) {
-        // If AI fails, create a simple fallback summary
         if (error instanceof Error && error.message.includes('No text content')) {
           this.logger.warn('AI returned empty response, using fallback summary', {
             feedName,
             articleCount: articlesToSummarize.length,
           });
 
-          // Create a simple summary listing the articles
           const fallbackSummary = articlesToSummarize
             .map((article) => {
               const title = article.title || 'Untitled';
@@ -277,11 +254,7 @@ export class SummarizationService implements ISummarizationService {
             date: date.toISOString(),
             originalError:
               error instanceof Error
-                ? {
-                    message: error.message,
-                    name: error.name,
-                    stack: error.stack,
-                  }
+                ? { message: error.message, name: error.name, stack: error.stack }
                 : String(error),
           },
         }
@@ -298,29 +271,37 @@ export class SummarizationService implements ISummarizationService {
     db: Db
   ): Promise<DailySummary> {
     try {
-      // Import schema tables
-      const { dailySummaries, articleSummaryRelations } = await import('../../db.js');
-
-      // Insert the summary
-      const [savedSummary] = await db
-        .insert(dailySummaries)
+      const now = Date.now();
+      const savedSummary = await db
+        .insertInto('DailySummary')
         .values({
+          id: crypto.randomUUID(),
           feedId: summary.feedId,
           summaryDate: summary.summaryDate,
           summaryContent: summary.summaryContent,
-          sentToLexPage: summary.sentToLexPage || false,
-          lexPageDocumentId: summary.lexPageDocumentId,
+          structuredContent: summary.structuredContent || null,
+          schemaVersion: summary.schemaVersion || null,
+          sentiment: summary.sentiment || null,
+          topicsList: summary.topicsList || null,
+          entityList: summary.entityList || null,
+          articleCount: summary.articleCount || null,
+          createdAt: now,
+          updatedAt: now,
         })
-        .returning();
+        .returningAll()
+        .executeTakeFirstOrThrow();
 
       // Create article-summary relations
       if (articleIds.length > 0) {
-        await db.insert(articleSummaryRelations).values(
-          articleIds.map((articleId) => ({
-            articleId,
-            dailySummaryId: savedSummary.id,
-          }))
-        );
+        await db
+          .insertInto('ArticleSummaryRelation')
+          .values(
+            articleIds.map((articleId) => ({
+              articleId,
+              dailySummaryId: savedSummary.id,
+            }))
+          )
+          .execute();
       }
 
       this.logger.info('Daily summary saved', {
@@ -337,7 +318,6 @@ export class SummarizationService implements ISummarizationService {
         error,
       });
 
-      // Check if this is a unique constraint violation
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorCause = (error as { cause?: { message?: string } })?.cause?.message || '';
 
@@ -346,15 +326,15 @@ export class SummarizationService implements ISummarizationService {
         errorCause.includes('UNIQUE constraint failed') ||
         errorMessage.includes('DailySummary_feedId_summaryDate_key')
       ) {
-        // Get feed name for better error message
-        const { feeds } = await import('../../db.js');
-        const [feed] = await db
-          .select({ name: feeds.name })
-          .from(feeds)
-          .where(eq(feeds.id, summary.feedId));
+        const feed = await db
+          .selectFrom('Feed')
+          .select('name')
+          .where('id', '=', summary.feedId)
+          .executeTakeFirst();
 
         const feedName = feed?.name || 'Unknown Feed';
-        const dateStr = format(summary.summaryDate, 'yyyy-MM-dd');
+        const summaryDateObj = fromTimestamp(summary.summaryDate);
+        const dateStr = summaryDateObj ? format(summaryDateObj, 'yyyy-MM-dd') : 'unknown';
 
         throw new DatabaseError(
           `Daily summary already exists for ${feedName} on ${dateStr}. Use 'force' option to regenerate.`,
@@ -386,51 +366,44 @@ export class SummarizationService implements ISummarizationService {
   /**
    * Get related context from previous summaries
    */
-  async getRelatedContext(articles: Article[], db: Db | null): Promise<string[]> {
+  async getRelatedContext(articles: ArticleWithFeed[], db: Db | null): Promise<string[]> {
     if (!db || articles.length === 0) {
       return [];
     }
 
     try {
-      // Get the date range for context (last 7 days)
       const oldestArticle = articles.reduce(
         (oldest, article) => {
           if (!article.pubDate) return oldest;
           return !oldest || article.pubDate < oldest ? article.pubDate : oldest;
         },
-        null as Date | null
+        null as number | null
       );
 
       if (!oldestArticle) {
         return [];
       }
 
-      const contextStartDate = subDays(oldestArticle, 7);
+      const oldestDate = fromTimestamp(oldestArticle);
+      if (!oldestDate) return [];
 
-      // Import schema tables
-      const { dailySummaries } = await import('../../db.js');
+      const contextStartDate = subDays(oldestDate, 7);
+      const contextStartTs = toTimestamp(contextStartDate)!;
 
-      // Find related daily summaries
       const relatedSummaries = await db
-        .select({
-          id: dailySummaries.id,
-          summaryContent: dailySummaries.summaryContent,
-          summaryDate: dailySummaries.summaryDate,
-        })
-        .from(dailySummaries)
-        .where(
-          and(
-            gte(dailySummaries.summaryDate, contextStartDate),
-            lt(dailySummaries.summaryDate, oldestArticle)
-          )
-        )
-        .orderBy(desc(dailySummaries.summaryDate))
-        .limit(5);
+        .selectFrom('DailySummary')
+        .select(['id', 'summaryContent', 'summaryDate'])
+        .where('summaryDate', '>=', contextStartTs)
+        .where('summaryDate', '<', oldestArticle)
+        .orderBy('summaryDate', 'desc')
+        .limit(5)
+        .execute();
 
-      return relatedSummaries.map(
-        (summary) =>
-          `## Previous Summary (${format(summary.summaryDate, 'MMM d, yyyy')})\n${summary.summaryContent}`
-      );
+      return relatedSummaries.map((summary) => {
+        const dateObj = fromTimestamp(summary.summaryDate);
+        const dateStr = dateObj ? format(dateObj, 'MMM d, yyyy') : 'Unknown';
+        return `## Previous Summary (${dateStr})\n${summary.summaryContent}`;
+      });
     } catch (error) {
       this.logger.warn('Failed to get related context', {
         error: error instanceof Error ? error.message : String(error),
@@ -459,56 +432,50 @@ export class SummarizationService implements ISummarizationService {
         return '# No Summaries\n\nNo daily summaries were found for this week.';
       }
 
-      // Count stories and sources
       let storyCount = 0;
       const sources = new Set<string>();
 
-      // If summaries have additional metadata, use it
       summaries.forEach((summary: DailySummary & { articleCount?: number; feedName?: string }) => {
-        // Count articles if available
         if (summary.articleCount) {
           storyCount += summary.articleCount;
         }
-        // Track feed names if available
         if (summary.feedName) {
           sources.add(summary.feedName);
         }
       });
 
-      // If we couldn't get exact counts, estimate based on summaries
       if (storyCount === 0) {
-        // Estimate ~5-10 articles per daily summary
         storyCount = summaries.length * 7;
       }
 
-      // Build context for template with content length limits to prevent timeouts
-      const MAX_DAILY_SUMMARY_LENGTH = 5000; // Limit each daily summary to 5000 chars
+      const MAX_DAILY_SUMMARY_LENGTH = 5000;
       const templateContext = {
         weekStartDate: format(dateRange.start, 'yyyy-MM-dd'),
         weekEndDate: format(dateRange.end, 'yyyy-MM-dd'),
         displayDateRange: `${format(dateRange.start, 'MMM d')} - ${format(dateRange.end, 'MMM d, yyyy')}`,
-        summaries: summaries.map((summary) => ({
-          date: format(summary.summaryDate, 'yyyy-MM-dd'),
-          displayDate: format(summary.summaryDate, 'EEEE, MMMM d'),
-          content:
-            summary.summaryContent.length > MAX_DAILY_SUMMARY_LENGTH
-              ? `${summary.summaryContent.substring(
-                  0,
-                  MAX_DAILY_SUMMARY_LENGTH
-                )}...\n\n[Content truncated for processing efficiency]`
-              : summary.summaryContent,
-        })),
+        summaries: summaries.map((summary) => {
+          const dateObj = fromTimestamp(summary.summaryDate);
+          return {
+            date: dateObj ? format(dateObj, 'yyyy-MM-dd') : 'unknown',
+            displayDate: dateObj ? format(dateObj, 'EEEE, MMMM d') : 'Unknown',
+            content:
+              summary.summaryContent.length > MAX_DAILY_SUMMARY_LENGTH
+                ? `${summary.summaryContent.substring(
+                    0,
+                    MAX_DAILY_SUMMARY_LENGTH
+                  )}...\n\n[Content truncated for processing efficiency]`
+                : summary.summaryContent,
+          };
+        }),
         summaryCount: summaries.length,
         storyCount,
-        sourceCount: sources.size || summaries.length, // At least one source per summary
+        sourceCount: sources.size || summaries.length,
       };
 
-      // Render the prompt (use weekly-digest prompt)
       const prompt = renderPrompt(getPrompt('weekly-digest'), templateContext);
 
-      // Log prompt size for debugging and apply final size limit
       const promptLength = prompt.length;
-      const MAX_TOTAL_PROMPT_LENGTH = 200000; // 200k chars to prevent timeouts
+      const MAX_TOTAL_PROMPT_LENGTH = 200000;
 
       let response;
 
@@ -521,18 +488,16 @@ export class SummarizationService implements ISummarizationService {
           summaryCount: templateContext.summaryCount,
         });
 
-        // Truncate the prompt if it's still too large
         const truncatedPrompt = `${prompt.substring(
           0,
           MAX_TOTAL_PROMPT_LENGTH
         )}\n\n[Prompt truncated to prevent timeout - proceeding with available content]`;
 
-        // Generate recap with AI using truncated prompt
         response = await this.geminiClient.generateWithRetry(truncatedPrompt, {
           config: {
             model: DEFAULT_MODELS.WEEKLY_SUMMARY,
             temperature: 0.8,
-            maxOutputTokens: 65536, // 64K tokens for comprehensive weekly summaries
+            maxOutputTokens: 65536,
           },
           maxRetries: 3,
           onRetry: (attempt, error) => {
@@ -549,13 +514,11 @@ export class SummarizationService implements ISummarizationService {
           weekEndDate: templateContext.weekEndDate,
         });
 
-        // Generate recap with AI - weekly summaries need much higher token limits
-        // Use retry logic for better reliability with large prompts
         response = await this.geminiClient.generateWithRetry(prompt, {
           config: {
             model: DEFAULT_MODELS.WEEKLY_SUMMARY,
             temperature: 0.8,
-            maxOutputTokens: 65536, // 64K tokens for comprehensive weekly summaries
+            maxOutputTokens: 65536,
           },
           maxRetries: 3,
           onRetry: (attempt, error) => {
@@ -599,13 +562,11 @@ export class SummarizationService implements ISummarizationService {
       });
 
       const templateContext = {
-        weeklyRecap: content.substring(0, 5000), // Limit content length
+        weeklyRecap: content.substring(0, 5000),
       };
 
-      // Render the prompt (use topic-extraction prompt)
       const prompt = renderPrompt(getPrompt('topic-extraction'), templateContext);
 
-      // Extract topics with AI (expecting JSON response)
       const topics = await this.geminiClient.generateJSON<{ topics: string[] }>(prompt, {
         model: DEFAULT_MODELS.TOPIC_EXTRACTION,
         temperature: 0.5,
@@ -621,7 +582,6 @@ export class SummarizationService implements ISummarizationService {
       return extractedTopics;
     } catch (error) {
       this.logger.error('Failed to extract topics', error as Error);
-      // Return empty array on failure to not break the flow
       return [];
     }
   }
@@ -642,19 +602,17 @@ export class SummarizationService implements ISummarizationService {
       });
 
       const templateContext = {
-        weeklyRecap: content, // Send full content - model has 1M+ token limit
-        topics, // Send all topics
+        weeklyRecap: content,
+        topics,
       };
 
-      // Render the prompt (use title-generator prompt)
       const prompt = renderPrompt(getPrompt('title-generator'), templateContext);
 
-      // Generate title with AI - use retry logic for reliability
       const response = await this.geminiClient.generateWithRetry(prompt, {
         config: {
           model: DEFAULT_MODELS.BEEF_TITLE,
           temperature: 0.9,
-          maxOutputTokens: 4096, // Much higher token limit for creative titles
+          maxOutputTokens: 4096,
         },
         maxRetries: 3,
         onRetry: (attempt, error) => {
@@ -664,7 +622,7 @@ export class SummarizationService implements ISummarizationService {
         },
       });
 
-      const title = response.text.trim().replace(/^#\s*/, ''); // Remove leading # if present
+      const title = response.text.trim().replace(/^#\s*/, '');
 
       this.logger.info('Title generated successfully', {
         titleLength: title.length,
@@ -677,7 +635,6 @@ export class SummarizationService implements ISummarizationService {
         topicCount: topics.length,
         contentLength: content.length,
       });
-      // Return a default title on failure
       return 'Weekly Recap';
     }
   }
@@ -690,15 +647,12 @@ export class SummarizationService implements ISummarizationService {
     recapContent: string;
     soWhatContent?: string;
   } {
-    // Look for specific section markers
     const belowTheFoldMatch = content.match(/## Below the Fold\n([\s\S]*?)(?=## |$)/);
     const soWhatMatch = content.match(/## So What\?\n([\s\S]*?)(?=## |$)/);
 
-    // Extract sections
     const belowTheFoldContent = belowTheFoldMatch?.[1]?.trim();
     const soWhatContent = soWhatMatch?.[1]?.trim();
 
-    // Remove these sections from the main content
     let recapContent = content;
     if (belowTheFoldMatch) {
       recapContent = recapContent.replace(belowTheFoldMatch[0], '');
@@ -707,7 +661,6 @@ export class SummarizationService implements ISummarizationService {
       recapContent = recapContent.replace(soWhatMatch[0], '');
     }
 
-    // Return only non-empty sections
     return {
       recapContent: recapContent.trim(),
       ...(belowTheFoldContent && { belowTheFoldContent }),
@@ -724,37 +677,39 @@ export class SummarizationService implements ISummarizationService {
     db: Db
   ): Promise<WeeklySummary> {
     try {
-      // Import schema tables
-      const { weeklySummaries, dailyWeeklySummaryRelations } = await import('../../db.js');
-
-      // Insert the summary
-      const [savedSummary] = await db
-        .insert(weeklySummaries)
+      const now = Date.now();
+      const savedSummary = await db
+        .insertInto('WeeklySummary')
         .values({
+          id: crypto.randomUUID(),
           weekStartDate: summary.weekStartDate,
           weekEndDate: summary.weekEndDate,
-          feedGroupId: summary.feedGroupId,
           title: summary.title,
           recapContent: summary.recapContent,
-          belowTheFoldContent: summary.belowTheFoldContent,
-          soWhatContent: summary.soWhatContent,
-          topics: summary.topics ? JSON.stringify(summary.topics) : null,
-          sentToLexPage: summary.sentToLexPage || false,
-          lexPageDocumentId: summary.lexPageDocumentId,
+          belowTheFoldContent: summary.belowTheFoldContent || null,
+          soWhatContent: summary.soWhatContent || null,
+          topics: summary.topics ? (typeof summary.topics === 'string' ? summary.topics : JSON.stringify(summary.topics)) : null,
+          sentAt: summary.sentAt || null,
+          createdAt: now,
+          updatedAt: now,
         })
-        .returning();
+        .returningAll()
+        .executeTakeFirstOrThrow();
 
-      // Create daily-weekly relations in batches to avoid parameter limits
+      // Create daily-weekly relations in batches
       if (dailySummaryIds.length > 0) {
-        const BATCH_SIZE = 20; // D1 has limits on number of parameters
+        const BATCH_SIZE = 20;
         for (let i = 0; i < dailySummaryIds.length; i += BATCH_SIZE) {
           const batch = dailySummaryIds.slice(i, i + BATCH_SIZE);
-          await db.insert(dailyWeeklySummaryRelations).values(
-            batch.map((dailySummaryId) => ({
-              dailySummaryId,
-              weeklySummaryId: savedSummary.id,
-            }))
-          );
+          await db
+            .insertInto('DailyWeeklySummaryRelation')
+            .values(
+              batch.map((dailySummaryId) => ({
+                dailySummaryId,
+                weeklySummaryId: savedSummary.id,
+              }))
+            )
+            .execute();
         }
       }
 
@@ -773,7 +728,6 @@ export class SummarizationService implements ISummarizationService {
         error,
       });
 
-      // Check if this is a unique constraint violation
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorCause = (error as { cause?: { message?: string } })?.cause?.message || '';
 
@@ -782,8 +736,10 @@ export class SummarizationService implements ISummarizationService {
         errorCause.includes('UNIQUE constraint failed') ||
         errorMessage.includes('WeeklySummary_weekStartDate_weekEndDate_key')
       ) {
-        const startDateStr = format(summary.weekStartDate, 'yyyy-MM-dd');
-        const endDateStr = format(summary.weekEndDate, 'yyyy-MM-dd');
+        const startDateObj = fromTimestamp(summary.weekStartDate);
+        const endDateObj = fromTimestamp(summary.weekEndDate);
+        const startDateStr = startDateObj ? format(startDateObj, 'yyyy-MM-dd') : 'unknown';
+        const endDateStr = endDateObj ? format(endDateObj, 'yyyy-MM-dd') : 'unknown';
 
         throw new DatabaseError(
           `Weekly summary already exists for ${startDateStr} to ${endDateStr}. Use 'force' option to regenerate.`,
@@ -816,21 +772,21 @@ export class SummarizationService implements ISummarizationService {
    * Build structured prompt for AI generation
    */
   private async buildStructuredPrompt(
-    articles: Article[],
+    articles: ArticleWithFeed[],
     feedName: string,
     date: Date,
     relatedContext: string[]
   ): Promise<string> {
-    // Build article context
     const articleContext = articles
       .map((article, index) => {
         const content = article.content || article.contentSnippet || '';
         const truncatedContent =
           content.length > 2000 ? `${content.substring(0, 1997)}...` : content;
 
+        const pubDateObj = fromTimestamp(article.pubDate);
         return `Article ${index + 1}: ${article.title}
 Source: ${article.link || 'No URL'}
-Published: ${article.pubDate ? format(article.pubDate, 'PPpp') : 'Unknown'}
+Published: ${pubDateObj ? format(pubDateObj, 'PPpp') : 'Unknown'}
 Content: ${truncatedContent}`;
       })
       .join('\n\n');
@@ -907,14 +863,13 @@ Return your response as valid JSON matching the required schema. Do not include 
    */
   private assembleStructuredSummary(
     generated: GeneratedStructuredContent,
-    articles: Article[],
+    articles: ArticleWithFeed[],
     feedName: string,
     date: Date,
     startTime: number
   ): StructuredDailySummary {
     const dateStr = format(date, 'yyyy-MM-dd');
 
-    // Create article references
     const articleRefs = articles.map(
       (article, index) =>
         ({
@@ -925,12 +880,11 @@ Return your response as valid JSON matching the required schema. Do not include 
         }) as const
     );
 
-    // Build structured summary
     const structuredSummary: StructuredDailySummary = {
       version: '1.0',
       metadata: {
         date: dateStr,
-        feedId: 'unknown', // Will be set by caller
+        feedId: 'unknown',
         feedName,
         articleCount: articles.length,
         generatedAt: new Date().toISOString(),
@@ -949,11 +903,10 @@ Return your response as valid JSON matching the required schema. Do not include 
       },
       articles: articleRefs,
       formatting: {
-        markdown: '', // Will be generated below
+        markdown: '',
       },
     };
 
-    // Generate markdown representation
     structuredSummary.formatting.markdown = SummaryAdapter.toMarkdown(structuredSummary);
 
     return structuredSummary;
@@ -969,41 +922,41 @@ Return your response as valid JSON matching the required schema. Do not include 
     db: Db
   ): Promise<DailySummary> {
     try {
-      // Update metadata with correct feedId
       structuredSummary.metadata.feedId = feedId;
 
-      // Prepare denormalized fields for search
       const topicsList = structuredSummary.insights.topics.map((t) => t.name).join(', ');
-
       const entityList = structuredSummary.insights.entities.map((e) => e.name).join(', ');
 
-      // Import schema tables
-      const { dailySummaries, articleSummaryRelations } = await import('../../db.js');
-
-      // Insert the summary with both structured and markdown formats
-      const [savedSummary] = await db
-        .insert(dailySummaries)
+      const now = Date.now();
+      const savedSummary = await db
+        .insertInto('DailySummary')
         .values({
+          id: crypto.randomUUID(),
           feedId,
-          summaryDate: parseISO(structuredSummary.metadata.date),
-          summaryContent: structuredSummary.formatting.markdown, // Backward compatibility
-          structuredContent: JSON.stringify(structuredSummary), // New structured format
+          summaryDate: toTimestamp(parseISO(structuredSummary.metadata.date))!,
+          summaryContent: structuredSummary.formatting.markdown,
+          structuredContent: JSON.stringify(structuredSummary),
           schemaVersion: structuredSummary.version,
           sentiment: structuredSummary.insights.sentiment.score,
           topicsList: topicsList || null,
           entityList: entityList || null,
           articleCount: structuredSummary.metadata.articleCount,
+          createdAt: now,
+          updatedAt: now,
         })
-        .returning();
+        .returningAll()
+        .executeTakeFirstOrThrow();
 
-      // Create article-summary relations
       if (articleIds.length > 0) {
-        await db.insert(articleSummaryRelations).values(
-          articleIds.map((articleId) => ({
-            articleId,
-            dailySummaryId: savedSummary.id,
-          }))
-        );
+        await db
+          .insertInto('ArticleSummaryRelation')
+          .values(
+            articleIds.map((articleId) => ({
+              articleId,
+              dailySummaryId: savedSummary.id,
+            }))
+          )
+          .execute();
       }
 
       this.logger.info('Structured daily summary saved', {
@@ -1038,12 +991,11 @@ Return your response as valid JSON matching the required schema. Do not include 
    * Format markdown content
    */
   private formatMarkdown(content: string): string {
-    // Clean up common AI response artifacts
     return content
       .trim()
-      .replace(/```markdown\n?/g, '') // Remove markdown code blocks
-      .replace(/```\n?$/g, '') // Remove closing code blocks
-      .replace(/\n{3,}/g, '\n\n') // Normalize line breaks
+      .replace(/```markdown\n?/g, '')
+      .replace(/```\n?$/g, '')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
 

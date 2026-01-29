@@ -63,8 +63,8 @@ export async function POST(request: Request, env: Env): Promise<Response> {
     // Initialize queue dispatcher
     const queueDispatcher = QueueDispatcher.create(env);
 
-    // Send weekly summary initiator task to queue
-    const requestId = await queueDispatcher.sendToWeeklySummaryInitiatorQueue(
+    // Send weekly digest task to queue
+    const requestId = await queueDispatcher.sendToWeeklyDigestQueue(
       weekStartDate,
       weekEndDate,
       body.force,
@@ -157,7 +157,7 @@ export async function GET(
     return new Response(
       JSON.stringify(
         {
-          endpoint: '/run/weekly-summary',
+          endpoint: '/api/run/weekly-summary',
           method: 'POST',
           description: 'Trigger weekly summary generation',
           headers: {

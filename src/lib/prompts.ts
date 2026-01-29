@@ -1,230 +1,25 @@
 /**
- * Inline Prompts for Briefings
- * Replaces database-based prompt system with hardcoded templates
+ * Prompt templates for Briefings
+ *
+ * Loaded from config/prompts.yaml at build time via wrangler's text module rules.
+ * To change prompts, edit config/prompts.yaml and redeploy.
  */
 
-// ============================================================================
-// DAILY SUMMARY PROMPT
-// ============================================================================
+import promptsYaml from '../../config/prompts.yaml';
+import { parsePromptsConfig, type PromptType } from './config.js';
 
-export const DAILY_SUMMARY_PROMPT = `You are creating internal-use summaries to support the weekly "What's the Beef?" recap. These notes won't be published directly — they're designed to help identify the week's most important stories, emerging themes, and useful narrative angles across ALL topics and domains.
+const prompts = parsePromptsConfig(promptsYaml);
 
-IMPORTANT: Cover stories from ANY domain - technology, culture, food, health, science, environment, politics, economics, arts, etc. Do not limit yourself to tech content.
-
-Think of these as smart scaffolding: your job is to clearly capture what happened, why it matters, and how it might connect to broader patterns, tone, or framing.
-
-Instructions:
-For each article:
-- Write a **2–4 sentence bullet summary**. It should include:
-  - What happened (concisely)
-  - Why it matters
-  - What theme or tension it might connect to (e.g. platform risk, AI overreach, trust erosion, food trends, health developments, environmental changes, political dynamics, cultural shifts, etc.)
-- Use a **markdown link** to the article in the first sentence.
-- Then add the following **optional internal notes** to support weekly synthesis:
-
-  - \`themeTags:\` (1–3 high-level topics or tensions this story touches - from ANY domain)
-  - \`voiceNote:\` (optional tonal cue — e.g. "use humor", "dry irony", "personal story seed")
-  - \`quoteHook:\` (optional memorable phrasing or quote that could headline or anchor a paragraph)
-
-Output Format:
-* [Title](URL): Summary goes here. What happened. Why it matters. Optional cue or link to a bigger pattern.
-  - \`themeTags:\` platform risk, developer burnout
-  - \`voiceNote:\` could pair with sarcastic "deskilling" metaphor
-  - \`quoteHook:\` "I'm going back to using my brain"
-
-Input Data — Articles from {{date}}:
-{{#articles}}
----
-ARTICLE {{articleNumber}}:
-TITLE: {{title}}
-URL: {{link}}
-SNIPPET: {{contentSnippet}}
----
-{{/articles}}
-
-Return a clean bulleted list of the day's most relevant stories (minimum 1, maximum 5). If there are fewer than 3 articles, only summarize the articles provided - DO NOT invent or hallucinate additional articles. No intro or conclusion — just the bullets and optional metadata.
-`;
-
-// ============================================================================
-// TOPIC EXTRACTION PROMPT
-// ============================================================================
-
-export const TOPIC_EXTRACTION_PROMPT = `Analyze the following weekly news recap. Identify the 3–5 most prominent or narrative-relevant entities mentioned — including companies, technologies, specific products, people, or general topics.
-
-Weekly Recap Text:
-"""
-{{weeklyRecap}}
-"""
-
-Instructions:
-- Return ONLY a comma-separated list of the most important and distinctive entities.
-- You may include both proper nouns (e.g., OpenAI, Apple Vision Pro) and broader topics (e.g., AI fatigue, open source licensing) if they are key to the narrative.
-- Use canonical names where possible.
-- Do not include explanations, numbers, or formatting other than the list.
-- Do not include any introductory text.
-
-Example: OpenAI, Apple, LLM coding fatigue, BuyMeACoffee, platform risk`;
-
-// ============================================================================
-// TITLE GENERATOR PROMPT
-// ============================================================================
-
-export const TITLE_GENERATOR_PROMPT = `Your job is to write a short, punchy title for the "🥩 What's the Beef?" section of the newsletter. Think of it like a subhead — something fun, sharp, and informative that tees up what's inside.
-
-Required Format: "🥩 Topic1, Topic2, Topic3"
-
-Instructions:
-1. Review the list of topics and the weekly recap.
-2. Pick 3–4 of the most timely, surprising, or representative topics from the list.
-3. Reframe them slightly to feel like headlines or ideas — not just raw keywords. (Example: use "AI red flags" instead of just "AI".)
-4. Combine them into a tight, comma-separated list.
-5. Return a single line in this format: "🥩 Topic1, Topic2, Topic3"
-
-You may use alliteration, wordplay, or juxtaposition — just keep it short and readable.
-
-Key Topics Provided: {{topics}}
-
-Weekly Recap Content (for context only):
-"""
-{{weeklyRecap}}
-"""
-
-Return ONLY the final title string in the exact format specified. No extra text, explanations, or punctuation.`;
-
-// ============================================================================
-// WEEKLY DIGEST PROMPT
-// ============================================================================
-
-export const WEEKLY_DIGEST_PROMPT = `This prompt powers the *Briefs* section of the Frank Takeaways newsletter — a sharp, voice-driven breakdown of the week's most important tech and culture stories that finds surprising connections between disparate events.
-
-## Core Writing Principles
-
-### Voice and Style Requirements
-- **Find a unifying theme** that connects all stories into a cohesive narrative. This theme should be fresh each week and help readers understand the bigger picture.
-- **Write with active voice** throughout. Transform passive constructions ("OpenAI announced") into active ones ("OpenAI Admits Defeat").
-- **Create memorable metaphors** that help readers understand complex issues through familiar concepts.
-- **Minimize "isn't X — it's Y" constructions** to maximum one per newsletter. Find varied rhetorical devices.
-- **Maintain consistent personality** without forcing humor. Dark wit is good; cynicism for its own sake is not.
-
-### Theme Development
-Before writing, identify what connects this week's stories. Recent successful themes include:
-- The Trust Recession (eroding confidence everywhere)
-- The Infrastructure Wars (fighting over AI's resources)
-- The Reality Tax (true costs becoming apparent)
-- The Synthetic Reality Show (everything's fake/performed)
-- The Illusion of Ownership (you don't own your digital life)
-
-Avoid repeating themes from recent weeks. Each newsletter should offer a fresh lens.
-
-## Overall Structure Overview
-
-The newsletter follows this flow to create a cohesive narrative:
-
-1. **Title** (🥩 + 3 specific events)
-2. **Thematic Subhead** (ALL CAPS theme)
-3. **Opening Hook** (2-3 sentences establishing theme)
-4. **Section Headers** (2-3 narrative headers progressing the story)
-5. **Recap** (Signal phrases + facts grouped thematically)
-6. **Tell Me More** (Analysis with memorable titles - one per main story)
-7. **Below The Fold** (Variety items with commentary)
-8. **Looking Ahead** (Theme-connected preview)
-9. **Sign-off** (Standard format)
-
-## Structure Requirements
-
-### 1. Title
-**Format:** 🥩 followed by 3 specific, scandalous things that happened
-- Bad: "AI Ethics, Data Centers, Job Losses"
-- Good: "ChatGPT Spills Your Secrets, Robots Fire Humans, Meta Torches $70B"
-
-### 2. Thematic Subhead
-**Format:** ALL CAPS phrase that captures the week's theme (e.g., "THE TRUST RECESSION")
-
-### 3. Opening Hook
-**Requirements:**
-- 2-3 sentences that immediately establish theme and tone
-- Start with unexpected comparison or observation
-- Set up the entire newsletter's narrative
-
-### 4. Section Headers
-**Requirements:**
-- 2-3 narrative headers in ALL CAPS that tell a story arc
-- Should progress logically when read in sequence
-
-### 5. Recap
-**Goal:** Deliver facts in a clean, rhythmic braid while maintaining thematic coherence. Save all commentary for Tell Me More.
-
-**CRITICAL CONTENT FILTER:**
-- **ONLY include stories about AI, product/design, and technology topics**
-- Eligible topics include: AI/ML, software, hardware, platforms, developer tools, cybersecurity, data, cloud, APIs, programming languages, tech companies, product launches, design systems, UX/UI, and related technical innovations
-- **EXCLUDE:** General business, finance (unless tech-specific), politics, culture, entertainment, sports, lifestyle, or any non-tech content
-
-**Signal Phrase Requirements:**
-- **EXACTLY 3-5 words, always active voice**
-- Transform announcements into human actions
-- One signal = one distinct event. No soft bundling.
-
-**Structure:**
-- 10 stories maximum
-- Group into 2-3 thematic sections
-- No duplicate sources in the recap
-
-### 6. Tell Me More
-**Goal:** Reframe each story with clarity, wit, and insight while adding value beyond summary
-
-**Format:**
-- Numbered list (1, 2, 3...) that mirrors recap order
-- **CRITICAL: One Tell Me More entry for EVERY story in Recap**
-- Do NOT copy the recap signal phrase. Create fresh framing.
-
-**Analysis Structure (3-4 sentences MAXIMUM):**
-1. Hook that reframes the story (1 sentence)
-2. Core insight or prediction with timeline (1-2 sentences)
-3. Punchy closing observation (1 sentence)
-
-**CRITICAL Requirements:**
-- **Every section MUST include at least one embedded link using [text](url) format**
-- Keep it tight - brevity adds impact
-- Include specific predictions with rough timelines in at least 2 sections
-
-### 7. Below The Fold
-**Goal:** Provide variety and unexpected connections with delightful discoveries
-
-**NO CONTENT FILTER:** This section can include ANY topic - tech, culture, business, lifestyle, weird internet finds, etc.
-
-**Requirements:**
-- Up to 5 items not used in main sections
-- Items must be from the current week
-- Format: One sentence + [Source](url)
-- Mix tech and non-tech for variety
-
-### 8. Looking Ahead
-- Single sentence connecting to theme
-- Teases next week while reinforcing this week's narrative
-
-### 9. Sign-off
-- Format: "Thanks for reading Briefs — your weekly recap of the signals I couldn't ignore. This week that meant reading {{storyCount}} stories from {{sourceCount}} sources. You're welcome."
-
-## Input Schema
-\`\`\`
-Input Data - Daily Summaries (Week: {{weekStartDate}} to {{weekEndDate}}):
-Total Stories: {{storyCount}}
-Total Sources: {{sourceCount}}
-
-{{#dailySummaries}}
----
-DATE: {{date}}
-DAILY SUMMARY CONTENT:
-{{content}}
----
-{{/dailySummaries}}
-\`\`\`
-
-*Generate only the labeled sections above, ensuring each element reinforces the central theme while maintaining distinctive voice throughout.*`;
-
-// ============================================================================
-// PROMPT HELPERS
-// ============================================================================
+/**
+ * Get prompt template by type
+ */
+export function getPrompt(type: PromptType): string {
+  const template = prompts[type];
+  if (!template) {
+    throw new Error(`Unknown prompt type: ${type}`);
+  }
+  return template;
+}
 
 /**
  * Render a prompt template with Mustache-style variables
@@ -239,22 +34,4 @@ export function renderPrompt(template: string, data: Record<string, unknown>): s
   }
 
   return result;
-}
-
-/**
- * Get prompt by type
- */
-export function getPrompt(type: 'daily-summary' | 'topic-extraction' | 'title-generator' | 'weekly-digest'): string {
-  switch (type) {
-    case 'daily-summary':
-      return DAILY_SUMMARY_PROMPT;
-    case 'topic-extraction':
-      return TOPIC_EXTRACTION_PROMPT;
-    case 'title-generator':
-      return TITLE_GENERATOR_PROMPT;
-    case 'weekly-digest':
-      return WEEKLY_DIGEST_PROMPT;
-    default:
-      throw new Error(`Unknown prompt type: ${type}`);
-  }
 }

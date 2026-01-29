@@ -1,1 +1,0 @@
-ALTER TABLE `WeeklySummaryInstance` ADD `promptName` text;

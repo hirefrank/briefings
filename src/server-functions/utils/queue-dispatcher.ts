@@ -1,9 +1,4 @@
 // @ts-nocheck - Legacy code with type mismatches, needs refactoring
-import type {
-  DailySummaryJobMessage,
-  WeeklySummaryJobMessage,
-  WeeklySummaryGenerationMessage,
-} from '../../types/index.js';
 // Env type is globally defined
 import { Logger } from '../../services/index.js';
 import { z } from 'zod';
@@ -35,62 +30,10 @@ export const DailySummaryProcessorMessageSchema = z.object({
   timestamp: z.string(),
 });
 
-export const WeeklySummaryInitiatorMessageSchema = z.object({
-  weekStartDate: z.string(), // ISO date string
-  weekEndDate: z.string(), // ISO date string
-  force: z.boolean().optional().default(false),
-  feedGroupId: z.string().optional(),
-  topicPromptName: z.string().optional(),
-  titlePromptName: z.string().optional(),
-  requestId: z.string().uuid(),
-  timestamp: z.string(),
-});
-
-export const WeeklySummaryAggregatorMessageSchema = z.object({
+export const WeeklyDigestMessageSchema = z.object({
   weekStartDate: z.string(),
   weekEndDate: z.string(),
   force: z.boolean().optional().default(false),
-  feedGroupId: z.string().optional(),
-  topicPromptName: z.string().optional(),
-  titlePromptName: z.string().optional(),
-  requestId: z.string().uuid(),
-  timestamp: z.string(),
-});
-
-export const WeeklySummaryGenerationSchema = z.object({
-  type: z.literal('weekly-summary-generation'),
-  id: z.string().uuid(),
-  weekStartDate: z.string(),
-  weekEndDate: z.string(),
-  feedGroupId: z.string().optional(),
-  promptName: z.string().optional(),
-  aggregatedDataR2Key: z.string(), // R2 key for aggregated data
-  timestamp: z.string(),
-});
-
-export const WeeklySummaryPostprocessorMessageSchema = z.object({
-  weekStartDate: z.string(),
-  weekEndDate: z.string(),
-  feedGroupId: z.string().optional(),
-  generatedContentKey: z.string(), // R2 key for generated content
-  topicPromptName: z.string().optional(),
-  titlePromptName: z.string().optional(),
-  requestId: z.string().uuid(),
-  timestamp: z.string(),
-});
-
-export const WeeklySummaryFinalizerMessageSchema = z.object({
-  weekStartDate: z.string(),
-  weekEndDate: z.string(),
-  feedGroupId: z.string().optional(),
-  processedDataKey: z.string(), // R2 key for processed data
-  requestId: z.string().uuid(),
-  timestamp: z.string(),
-});
-
-export const PublishMessageSchema = z.object({
-  summaryId: z.string().uuid(),
-  summaryType: z.enum(['daily', 'weekly']),
   feedGroupId: z.string().optional(),
   requestId: z.string().uuid(),
   timestamp: z.string(),
@@ -100,17 +43,7 @@ export const PublishMessageSchema = z.object({
 export type FeedFetchMessage = z.infer<typeof FeedFetchMessageSchema>;
 export type DailySummaryMessage = z.infer<typeof DailySummaryMessageSchema>;
 export type DailySummaryProcessorMessage = z.infer<typeof DailySummaryProcessorMessageSchema>;
-export type WeeklySummaryInitiatorMessage = z.infer<typeof WeeklySummaryInitiatorMessageSchema>;
-export type WeeklySummaryAggregatorMessage = z.infer<typeof WeeklySummaryAggregatorMessageSchema>;
-// export type WeeklySummaryGenerationMessage = z.infer<typeof WeeklySummaryGenerationSchema>; // Using imported type instead
-export type WeeklySummaryPostprocessorMessage = z.infer<
-  typeof WeeklySummaryPostprocessorMessageSchema
->;
-export type WeeklySummaryFinalizerMessage = z.infer<typeof WeeklySummaryFinalizerMessageSchema>;
-export type PublishMessage = z.infer<typeof PublishMessageSchema>;
-
-// Re-export message types with different names (for compatibility)
-export type { WeeklySummaryAggregationMessage } from '../../types/index.js';
+export type WeeklyDigestMessage = z.infer<typeof WeeklyDigestMessageSchema>;
 
 /**
  * Validate queue message
@@ -260,223 +193,25 @@ export class QueueDispatcher {
   }
 
   /**
-   * Send weekly summary initiator message
+   * Send weekly digest message
    */
-  async sendToWeeklySummaryInitiatorQueue(
+  async sendToWeeklyDigestQueue(
     weekStartDate: string,
     weekEndDate: string,
     force?: boolean,
-    feedGroupId?: string,
-    topicPromptName?: string,
-    titlePromptName?: string
+    feedGroupId?: string
   ): Promise<string> {
     const requestId = this.generateRequestId();
-    const message: WeeklySummaryInitiatorMessage = {
+    const message: WeeklyDigestMessage = {
       weekStartDate,
       weekEndDate,
       force,
       feedGroupId,
-      topicPromptName,
-      titlePromptName,
       requestId,
       timestamp: this.getCurrentTimestamp(),
     };
 
-    await this.sendToQueue(
-      'WEEKLY_SUMMARY_INITIATOR_QUEUE',
-      message,
-      WeeklySummaryInitiatorMessageSchema
-    );
-    return requestId;
-  }
-
-  /**
-   * Send weekly summary aggregator message
-   */
-  async sendToWeeklySummaryAggregatorQueue(
-    weekStartDate: string,
-    weekEndDate: string,
-    requestId: string,
-    force?: boolean,
-    feedGroupId?: string,
-    topicPromptName?: string,
-    titlePromptName?: string
-  ): Promise<void> {
-    const message: WeeklySummaryAggregatorMessage = {
-      weekStartDate,
-      weekEndDate,
-      force,
-      feedGroupId,
-      topicPromptName,
-      titlePromptName,
-      requestId,
-      timestamp: this.getCurrentTimestamp(),
-    };
-
-    await this.sendToQueue(
-      'WEEKLY_SUMMARY_AGGREGATOR_QUEUE',
-      message,
-      WeeklySummaryAggregatorMessageSchema
-    );
-  }
-
-  /**
-   * Send weekly summary generator message
-   */
-  async sendToWeeklySummaryGeneratorQueue(
-    weekStartDate: string,
-    weekEndDate: string,
-    aggregatedDataR2Key: string,
-    requestId: string,
-    feedGroupId?: string,
-    promptName?: string
-  ): Promise<void> {
-    const message: WeeklySummaryGenerationMessage = {
-      type: 'weekly-summary-generation',
-      id: requestId,
-      weekStartDate,
-      weekEndDate,
-      aggregatedDataR2Key,
-      feedGroupId,
-      promptName,
-      timestamp: this.getCurrentTimestamp(),
-    };
-
-    await this.sendToQueue(
-      'WEEKLY_SUMMARY_GENERATOR_QUEUE',
-      message,
-      WeeklySummaryGenerationSchema
-    );
-  }
-
-  /**
-   * Send weekly summary postprocessor message
-   */
-  async sendToWeeklySummaryPostprocessorQueue(
-    weekStartDate: string,
-    weekEndDate: string,
-    generatedContentKey: string,
-    requestId: string,
-    feedGroupId?: string,
-    topicPromptName?: string,
-    titlePromptName?: string
-  ): Promise<void> {
-    const message: WeeklySummaryPostprocessorMessage = {
-      weekStartDate,
-      weekEndDate,
-      generatedContentKey,
-      feedGroupId,
-      topicPromptName,
-      titlePromptName,
-      requestId,
-      timestamp: this.getCurrentTimestamp(),
-    };
-
-    await this.sendToQueue(
-      'WEEKLY_SUMMARY_POSTPROCESSOR_QUEUE',
-      message,
-      WeeklySummaryPostprocessorMessageSchema
-    );
-  }
-
-  /**
-   * Send weekly summary finalizer message
-   */
-  async sendToWeeklySummaryFinalizerQueue(
-    weekStartDate: string,
-    weekEndDate: string,
-    processedDataKey: string,
-    requestId: string,
-    feedGroupId?: string
-  ): Promise<void> {
-    const message: WeeklySummaryFinalizerMessage = {
-      weekStartDate,
-      weekEndDate,
-      processedDataKey,
-      feedGroupId,
-      requestId,
-      timestamp: this.getCurrentTimestamp(),
-    };
-
-    await this.sendToQueue(
-      'WEEKLY_SUMMARY_FINALIZER_QUEUE',
-      message,
-      WeeklySummaryFinalizerMessageSchema
-    );
-  }
-
-  /**
-   * Send to publisher queues
-   */
-  async sendToLexPagePublishQueue(
-    summaryId: string,
-    summaryType: 'daily' | 'weekly',
-    feedGroupId?: string
-  ): Promise<string> {
-    const requestId = this.generateRequestId();
-    const message: PublishMessage = {
-      summaryId,
-      summaryType,
-      feedGroupId,
-      requestId,
-      timestamp: this.getCurrentTimestamp(),
-    };
-
-    await this.sendToQueue('LEXPAGE_PUBLISH_QUEUE', message, PublishMessageSchema);
-    return requestId;
-  }
-
-  async sendToSlackPublishQueue(
-    summaryId: string,
-    summaryType: 'daily' | 'weekly',
-    feedGroupId?: string
-  ): Promise<string> {
-    const requestId = this.generateRequestId();
-    const message: PublishMessage = {
-      summaryId,
-      summaryType,
-      feedGroupId,
-      requestId,
-      timestamp: this.getCurrentTimestamp(),
-    };
-
-    await this.sendToQueue('SLACK_PUBLISH_QUEUE', message, PublishMessageSchema);
-    return requestId;
-  }
-
-  async sendToR2PublishQueue(
-    summaryId: string,
-    summaryType: 'daily' | 'weekly',
-    feedGroupId?: string
-  ): Promise<string> {
-    const requestId = this.generateRequestId();
-    const message: PublishMessage = {
-      summaryId,
-      summaryType,
-      feedGroupId,
-      requestId,
-      timestamp: this.getCurrentTimestamp(),
-    };
-
-    await this.sendToQueue('R2_PUBLISH_QUEUE', message, PublishMessageSchema);
-    return requestId;
-  }
-
-  async sendToLoopsPublishQueue(
-    summaryId: string,
-    summaryType: 'daily' | 'weekly',
-    feedGroupId?: string
-  ): Promise<string> {
-    const requestId = this.generateRequestId();
-    const message: PublishMessage = {
-      summaryId,
-      summaryType,
-      feedGroupId,
-      requestId,
-      timestamp: this.getCurrentTimestamp(),
-    };
-
-    await this.sendToQueue('LOOPS_PUBLISH_QUEUE', message, PublishMessageSchema);
+    await this.sendToQueue('WEEKLY_DIGEST_QUEUE', message, WeeklyDigestMessageSchema);
     return requestId;
   }
 
@@ -512,27 +247,6 @@ export class QueueDispatcher {
       });
       throw error;
     }
-  }
-
-  /**
-   * Queue a daily summary job
-   */
-  async queueDailySummaryJob(message: DailySummaryJobMessage): Promise<void> {
-    await this.env.DAILY_SUMMARY_JOB_QUEUE.send(message);
-  }
-
-  /**
-   * Queue a weekly summary job
-   */
-  async queueWeeklySummaryJob(message: WeeklySummaryJobMessage): Promise<void> {
-    await this.env.WEEKLY_SUMMARY_JOB_QUEUE.send(message);
-  }
-
-  /**
-   * Queue weekly summary generation
-   */
-  async queueWeeklySummaryGeneration(message: WeeklySummaryGenerationMessage): Promise<void> {
-    await this.env.WEEKLY_SUMMARY_GENERATION_QUEUE.send(message);
   }
 
   /**

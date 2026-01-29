@@ -4,8 +4,8 @@ import {
   SummarizationService,
   GeminiClient,
 } from '../../services/index.js';
-import { getDb, setupDb, articles, feeds, dailySummaries } from '../../db.js';
-import { eq, desc, gte } from 'drizzle-orm';
+import { getDb, setupDb } from '../../db.js';
+import { toTimestamp } from '../../db/helpers.js';
 import { subDays } from 'date-fns';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -31,13 +31,16 @@ app.get('/', async (c) => {
     const db = getDb(env);
 
     // Get test articles (recent ones)
+    const sevenDaysAgo = toTimestamp(subDays(new Date(), 7))!;
     const testArticles = await db
-      .select()
-      .from(articles)
-      .innerJoin(feeds, eq(articles.feedId, feeds.id))
-      .where(gte(articles.pubDate, subDays(new Date(), 7)))
-      .orderBy(desc(articles.pubDate))
-      .limit(5);
+      .selectFrom('Article')
+      .innerJoin('Feed', 'Article.feedId', 'Feed.id')
+      .selectAll('Article')
+      .selectAll('Feed')
+      .where('Article.pubDate', '>=', sevenDaysAgo)
+      .orderBy('Article.pubDate', 'desc')
+      .limit(5)
+      .execute();
 
     if (testArticles.length === 0) {
       return c.json(
@@ -49,17 +52,42 @@ app.get('/', async (c) => {
     }
 
     const articleData = testArticles.map((row) => ({
-      ...row.Article,
-      feed: row.Feed,
+      id: row.id,
+      feedId: row.feedId,
+      title: row.title,
+      link: row.link,
+      content: row.content,
+      contentSnippet: row.contentSnippet,
+      creator: row.creator,
+      isoDate: row.isoDate,
+      pubDate: row.pubDate,
+      processed: row.processed,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      feed: {
+        id: (row as any).id,
+        name: row.name,
+        url: row.url,
+        category: row.category,
+        isActive: row.isActive,
+        isValid: row.isValid,
+        validationError: row.validationError,
+        lastFetchedAt: row.lastFetchedAt,
+        lastError: row.lastError,
+        errorCount: row.errorCount,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      },
     }));
 
     // Check for previous summaries
     const previousSummaries = await db
-      .select()
-      .from(dailySummaries)
-      .where(gte(dailySummaries.summaryDate, subDays(new Date(), 7)))
-      .orderBy(desc(dailySummaries.summaryDate))
-      .limit(5);
+      .selectFrom('DailySummary')
+      .selectAll()
+      .where('summaryDate', '>=', sevenDaysAgo)
+      .orderBy('summaryDate', 'desc')
+      .limit(5)
+      .execute();
 
     // Initialize services
     const geminiClient = new GeminiClient({

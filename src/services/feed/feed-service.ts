@@ -1,11 +1,7 @@
-// @ts-nocheck - Legacy code with type mismatches, needs refactoring
 import { WorkersRSSParser } from './rss-parser-workers.js';
 import { getDb, type Db } from '../../db.js';
-import { type InferSelectModel, eq, and, gte, lt, inArray, desc } from 'drizzle-orm';
-import { articles, feeds } from '../../db/schema.js';
-
-type Article = InferSelectModel<typeof articles>;
-type Feed = InferSelectModel<typeof feeds>;
+import type { Feed, Article } from '../../db/types.js';
+import { toTimestamp, toBool, fromBool } from '../../db/helpers.js';
 import type { IFeedService, ParsedFeedItem, ILogger } from '../interfaces.js';
 import { Logger } from '../../lib/logger.js';
 import { FeedError, DatabaseError, ErrorCode } from '../../lib/errors.js';
@@ -19,7 +15,7 @@ export class FeedService implements IFeedService {
   private readonly parser: WorkersRSSParser;
   private dbCache: Db | null = null;
 
-  constructor(options: { logger?: ILogger }) {
+  constructor(options: { logger?: ILogger; configManager?: unknown }) {
     this.logger = options.logger || Logger.forService('FeedService');
 
     // Configure RSS parser for Cloudflare Workers
@@ -44,16 +40,20 @@ export class FeedService implements IFeedService {
   async getActiveFeeds(env: Env): Promise<Feed[]> {
     try {
       const db = this.getDb(env);
-      const activeFeeds = await db.select().from(feeds).where(eq(feeds.isActive, true));
+      const activeFeeds = await db
+        .selectFrom('Feed')
+        .selectAll()
+        .where('isActive', '=', 1)
+        .execute();
 
       this.logger.info('Retrieved active feeds from database', {
         totalActive: activeFeeds.length,
-        valid: activeFeeds.filter((f) => f.isValid).length,
-        invalid: activeFeeds.filter((f) => !f.isValid).length,
+        valid: activeFeeds.filter((f) => fromBool(f.isValid)).length,
+        invalid: activeFeeds.filter((f) => !fromBool(f.isValid)).length,
       });
 
       // Check if we need to re-validate invalid feeds
-      const invalidFeeds = activeFeeds.filter((f) => !f.isValid);
+      const invalidFeeds = activeFeeds.filter((f) => !fromBool(f.isValid));
       if (invalidFeeds.length > 0) {
         this.logger.info('Re-validating invalid feeds', {
           count: invalidFeeds.length,
@@ -82,7 +82,7 @@ export class FeedService implements IFeedService {
       }
 
       // Return only valid feeds for processing
-      const validFeeds = activeFeeds.filter((f) => f.isValid);
+      const validFeeds = activeFeeds.filter((f) => fromBool(f.isValid));
 
       this.logger.info('Returning valid active feeds', {
         count: validFeeds.length,
@@ -175,9 +175,10 @@ export class FeedService implements IFeedService {
       const existingUrls = new Set<string>();
       if (urls.length > 0) {
         const existingArticles = await db
-          .select({ link: articles.link })
-          .from(articles)
-          .where(inArray(articles.link, urls as string[]));
+          .selectFrom('Article')
+          .select('link')
+          .where('link', 'in', urls as string[])
+          .execute();
 
         existingArticles.forEach((a) => existingUrls.add(a.link));
       }
@@ -195,6 +196,7 @@ export class FeedService implements IFeedService {
 
       // Process and extract content from new articles
       const articlesToCreate: Array<{
+        id: string;
         feedId: string;
         title: string;
         link: string;
@@ -202,8 +204,10 @@ export class FeedService implements IFeedService {
         contentSnippet?: string;
         creator?: string;
         isoDate?: string;
-        pubDate?: Date;
-        processed: boolean;
+        pubDate?: number | null;
+        processed: number;
+        createdAt: number;
+        updatedAt: number;
       }> = [];
 
       for (const item of newItems) {
@@ -214,7 +218,9 @@ export class FeedService implements IFeedService {
           // Parse publication date
           const pubDate = this.parseDate(item.isoDate || item.pubDate);
 
+          const now = Date.now();
           articlesToCreate.push({
+            id: crypto.randomUUID(),
             feedId,
             title: this.sanitizeText(item.title, 500) || 'Untitled',
             link: item.link || '',
@@ -225,8 +231,10 @@ export class FeedService implements IFeedService {
             ),
             creator: this.sanitizeText(item.creator, 255),
             isoDate: item.isoDate || pubDate?.toISOString() || undefined,
-            pubDate: pubDate || undefined,
-            processed: false,
+            pubDate: toTimestamp(pubDate),
+            processed: 0,
+            createdAt: now,
+            updatedAt: now,
           });
         } catch (error) {
           this.logger.warn('Failed to process article', {
@@ -241,10 +249,14 @@ export class FeedService implements IFeedService {
         return [];
       }
 
-      // Batch insert new articles
+      // Insert articles one by one (returning)
       const insertedArticles: Article[] = [];
       for (const article of articlesToCreate) {
-        const [created] = await db.insert(articles).values(article).returning();
+        const created = await db
+          .insertInto('Article')
+          .values(article)
+          .returningAll()
+          .executeTakeFirstOrThrow();
         insertedArticles.push(created);
       }
 
@@ -293,7 +305,11 @@ export class FeedService implements IFeedService {
 
     try {
       const db = this.getDb(env);
-      await db.update(articles).set({ processed: true }).where(inArray(articles.id, articleIds));
+      await db
+        .updateTable('Article')
+        .set({ processed: 1, updatedAt: Date.now() })
+        .where('id', 'in', articleIds)
+        .execute();
 
       this.logger.info('Marked articles as processed', {
         count: articleIds.length,
@@ -325,45 +341,62 @@ export class FeedService implements IFeedService {
       startOfNextDay.setDate(startOfNextDay.getDate() + 1);
       startOfNextDay.setHours(0, 0, 0, 0);
 
+      const startTs = toTimestamp(startOfDay)!;
+      const endTs = toTimestamp(startOfNextDay)!;
+
       let query = db
-        .select({
-          ...articles,
-          feed: feeds,
-        })
-        .from(articles)
-        .innerJoin(feeds, eq(articles.feedId, feeds.id))
-        .where(and(gte(articles.pubDate, startOfDay), lt(articles.pubDate, startOfNextDay)))
-        .orderBy(desc(articles.pubDate));
+        .selectFrom('Article')
+        .innerJoin('Feed', 'Article.feedId', 'Feed.id')
+        .selectAll('Article')
+        .selectAll('Feed')
+        .where('Article.pubDate', '>=', startTs)
+        .where('Article.pubDate', '<', endTs)
+        .orderBy('Article.pubDate', 'desc');
 
       if (feedName) {
-        // First find the feed by name
-        const [feed] = await db.select().from(feeds).where(eq(feeds.name, feedName)).limit(1);
+        // Find feed by name and filter
+        const feed = await db
+          .selectFrom('Feed')
+          .selectAll()
+          .where('name', '=', feedName)
+          .limit(1)
+          .executeTakeFirst();
 
         if (feed) {
-          query = db
-            .select({
-              ...articles,
-              feed: feeds,
-            })
-            .from(articles)
-            .innerJoin(feeds, eq(articles.feedId, feeds.id))
-            .where(
-              and(
-                gte(articles.pubDate, startOfDay),
-                lt(articles.pubDate, startOfNextDay),
-                eq(articles.feedId, feed.id)
-              )
-            )
-            .orderBy(desc(articles.pubDate));
+          query = query.where('Article.feedId', '=', feed.id);
         }
       }
 
-      const result = await query;
+      const rows = await query.execute();
 
-      // Map the result to match the expected return type
-      return result.map((row) => ({
-        ...row,
-        feed: row.feed,
+      // Map joined rows to the expected shape
+      return rows.map((row) => ({
+        id: row.id,
+        feedId: row.feedId,
+        title: row.title,
+        link: row.link,
+        content: row.content,
+        contentSnippet: row.contentSnippet,
+        creator: row.creator,
+        isoDate: row.isoDate,
+        pubDate: row.pubDate,
+        processed: row.processed,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        feed: {
+          id: (row as any).id,
+          name: row.name,
+          url: row.url,
+          category: row.category,
+          isActive: row.isActive,
+          isValid: row.isValid,
+          validationError: row.validationError,
+          lastFetchedAt: row.lastFetchedAt,
+          lastError: row.lastError,
+          errorCount: row.errorCount,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        } as Feed,
       })) as (Article & { feed: Feed })[];
     } catch (error) {
       this.logger.error('Failed to get articles for date', error as Error, { date, feedName });
@@ -463,14 +496,15 @@ export class FeedService implements IFeedService {
       const db = getDb(env);
 
       await db
-        .update(feeds)
+        .updateTable('Feed')
         .set({
-          lastFetchedAt: new Date(),
-          lastError: null, // Clear any previous errors
-          errorCount: 0, // Reset error count on successful fetch
-          updatedAt: new Date(),
+          lastFetchedAt: Date.now(),
+          lastError: null,
+          errorCount: 0,
+          updatedAt: Date.now(),
         })
-        .where(eq(feeds.id, feedId));
+        .where('id', '=', feedId)
+        .execute();
 
       this.logger.debug('Feed timestamp updated successfully', {
         feedId,
@@ -481,8 +515,8 @@ export class FeedService implements IFeedService {
         feedId,
       });
 
-      throw new DatabaseError('Failed to update feed timestamp', ErrorCode.DATABASE_WRITE_ERROR, {
-        feedId,
+      throw new DatabaseError('Failed to update feed timestamp', ErrorCode.DATABASE_ERROR, {
+        operation: 'update_feed_timestamp',
       });
     }
   }
@@ -495,22 +529,24 @@ export class FeedService implements IFeedService {
       const db = getDb(env);
 
       // Get current error count
-      const [currentFeed] = await db
-        .select({ errorCount: feeds.errorCount })
-        .from(feeds)
-        .where(eq(feeds.id, feedId))
-        .limit(1);
+      const currentFeed = await db
+        .selectFrom('Feed')
+        .select('errorCount')
+        .where('id', '=', feedId)
+        .limit(1)
+        .executeTakeFirst();
 
       const newErrorCount = (currentFeed?.errorCount || 0) + 1;
 
       await db
-        .update(feeds)
+        .updateTable('Feed')
         .set({
           lastError: errorMessage,
           errorCount: newErrorCount,
-          updatedAt: new Date(),
+          updatedAt: Date.now(),
         })
-        .where(eq(feeds.id, feedId));
+        .where('id', '=', feedId)
+        .execute();
 
       this.logger.debug('Feed error information updated', {
         feedId,

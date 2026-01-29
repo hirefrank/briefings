@@ -1,5 +1,6 @@
 // Env type is globally defined
 import { getDb, setupDb } from '../../db.js';
+import { sql } from 'kysely';
 
 /**
  * Health check endpoint
@@ -20,7 +21,7 @@ export async function GET(env: Env): Promise<Response> {
     try {
       await setupDb(env);
       const db = getDb(env);
-      await db.run(`SELECT 1`);
+      await sql`SELECT 1`.execute(db);
       checks.database = true;
     } catch (error) {
       errors.push(`Database: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -69,14 +70,7 @@ export async function GET(env: Env): Promise<Response> {
         'FEED_FETCH_QUEUE',
         'DAILY_SUMMARY_INITIATOR_QUEUE',
         'DAILY_SUMMARY_PROCESSOR_QUEUE',
-        'WEEKLY_SUMMARY_INITIATOR_QUEUE',
-        'WEEKLY_SUMMARY_AGGREGATOR_QUEUE',
-        'WEEKLY_SUMMARY_GENERATOR_QUEUE',
-        'WEEKLY_SUMMARY_POSTPROCESSOR_QUEUE',
-        'WEEKLY_SUMMARY_FINALIZER_QUEUE',
-        'LEXPAGE_PUBLISH_QUEUE',
-        'SLACK_PUBLISH_QUEUE',
-        'R2_PUBLISH_QUEUE',
+        'WEEKLY_DIGEST_QUEUE',
       ];
 
       const missingQueues = queueBindings.filter((binding) => !(binding in env));

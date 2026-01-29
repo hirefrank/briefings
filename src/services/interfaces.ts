@@ -4,15 +4,10 @@
 
 import type { PublishResult, GeminiGenerationConfig, GeminiResponse } from '../types/index.js';
 import type { Db } from '../db.js';
-import type { InferSelectModel } from 'drizzle-orm';
-import type { articles, dailySummaries, weeklySummaries, feeds } from '../db/schema.js';
+import type { Feed, Article, DailySummary, WeeklySummary } from '../db/types.js';
 
-// Type aliases for Drizzle models
-export type Article = InferSelectModel<typeof articles>;
-export type DailySummary = InferSelectModel<typeof dailySummaries>;
-export type WeeklySummary = InferSelectModel<typeof weeklySummaries>;
-export type Feed = InferSelectModel<typeof feeds>;
-// Env type is globally defined
+// Re-export row types for convenience
+export type { Article, DailySummary, WeeklySummary, Feed };
 
 // Re-export PublishResult for convenience
 export type { PublishResult };

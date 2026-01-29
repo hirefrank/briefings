@@ -1,0 +1,16 @@
+# feeds.yaml — RSS feed sources for Briefings
+# Copy this file to feeds.yaml and customize with your own feeds.
+# feeds.yaml is gitignored; this example is checked in.
+
+feeds:
+  - name: TechCrunch
+    url: https://techcrunch.com/feed/
+    category: Technology
+
+  - name: Hacker News
+    url: https://news.ycombinator.com/rss
+    category: Technology
+
+  - name: Wired
+    url: https://www.wired.com/feed/rss
+    category: Technology

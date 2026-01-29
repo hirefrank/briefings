@@ -55,59 +55,71 @@ app.use('*', async (c, next) => {
 
 // Root endpoint
 app.get('/', (c) => {
-  return c.text('Briefings');
+  return c.redirect('/api/health');
 });
 
+// API routes
+const api = new Hono<{
+  Bindings: Env;
+  Variables: {
+    authenticated?: boolean;
+  };
+}>();
+
 // Health check
-app.get('/health', async (c) => {
+api.get('/health', async (c) => {
   const response = await healthGET(c.env);
   return response;
 });
 
 // Feed fetch endpoints
-app.get('/run/feed-fetch', checkApiKey, async (c) => {
+api.get('/run/feed-fetch', checkApiKey, async (c) => {
   const authenticated = c.get('authenticated') || false;
   const response = await feedFetchGET(c.req.raw, c.env, { authenticated });
   return response;
 });
 
-app.post('/run/feed-fetch', requireApiKey, async (c) => {
+api.post('/run/feed-fetch', requireApiKey, async (c) => {
   const response = await feedFetchPOST(c.req.raw, c.env);
   return response;
 });
 
 // Daily summary endpoints
-app.get('/run/daily-summary', checkApiKey, async (c) => {
+api.get('/run/daily-summary', checkApiKey, async (c) => {
   const authenticated = c.get('authenticated') || false;
   const response = await dailySummaryGET(c.req.raw, c.env, { authenticated });
   return response;
 });
 
-app.post('/run/daily-summary', requireApiKey, async (c) => {
+api.post('/run/daily-summary', requireApiKey, async (c) => {
   const response = await dailySummaryPOST(c.req.raw, c.env);
   return response;
 });
 
 // Weekly summary endpoints
-app.get('/run/weekly-summary', checkApiKey, async (c) => {
+api.get('/run/weekly-summary', checkApiKey, async (c) => {
   const authenticated = c.get('authenticated') || false;
   const response = await weeklySummaryGET(c.req.raw, c.env, { authenticated });
   return response;
 });
 
-app.post('/run/weekly-summary', requireApiKey, async (c) => {
+api.post('/run/weekly-summary', requireApiKey, async (c) => {
   const response = await weeklySummaryPOST(c.req.raw, c.env);
   return response;
 });
 
 // Database seeding (development)
-app.post('/seed', requireApiKey, async (c) => {
+api.post('/seed', requireApiKey, async (c) => {
   const response = await seedDatabase(c.env);
   return response;
 });
 
 // Test endpoint for previous context (development)
-app.route('/test/previous-context', testPreviousContext);
+api.use('/test/previous-context/*', requireApiKey);
+api.use('/test/previous-context', requireApiKey);
+api.route('/test/previous-context', testPreviousContext);
+
+app.route('/api', api);
 
 // 404 handler
 app.notFound((c) => {

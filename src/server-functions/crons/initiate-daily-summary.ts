@@ -3,8 +3,7 @@ import type { ScheduledEvent, ExecutionContext } from '@cloudflare/workers-types
 import { Logger } from '../../lib/logger.js';
 import { QueueDispatcher } from '../utils/queue-dispatcher.js';
 import { getDb, setupDb } from '../../db.js';
-import { dailySummaries } from '../../db/schema.js';
-import { and, gte, lt } from 'drizzle-orm';
+import { toTimestamp } from '../../db/helpers.js';
 
 /**
  * Cron handler for initiating daily summary generation
@@ -100,12 +99,15 @@ async function checkExistingSummaries(targetDate: string, env: Env) {
   endOfDay.setUTCHours(23, 59, 59, 999);
 
   const db = getDb(env);
+  const startTs = toTimestamp(startOfDay)!;
+  const endTs = toTimestamp(endOfDay)!;
+
   return db
-    .select()
-    .from(dailySummaries)
-    .where(
-      and(gte(dailySummaries.summaryDate, startOfDay), lt(dailySummaries.summaryDate, endOfDay))
-    );
+    .selectFrom('DailySummary')
+    .selectAll()
+    .where('summaryDate', '>=', startTs)
+    .where('summaryDate', '<', endTs)
+    .execute();
 }
 
 /**

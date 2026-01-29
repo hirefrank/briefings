@@ -1,8 +1,6 @@
-// @ts-nocheck - Legacy code with type mismatches, needs refactoring
-// Env type is globally defined
 import { Logger, ApiError, ErrorCode } from '../../services/index.js';
-import { getDb, setupDb, articles, feeds } from '../../db.js';
-import { eq, and, gte, lt } from 'drizzle-orm';
+import { getDb, setupDb } from '../../db.js';
+import { toTimestamp } from '../../db/helpers.js';
 import {
   validateQueueMessage,
   DailySummaryMessageSchema,
@@ -13,11 +11,6 @@ import {
 /**
  * Daily summary initiator queue consumer
  * Processes messages from the briefings-daily-summary-initiator queue
- *
- * Responsibilities:
- * 1. Query articles for the specified date and feed
- * 2. Group articles by feed
- * 3. Dispatch processing tasks for each feed with articles
  */
 export async function queue(batch: MessageBatch<DailySummaryMessage>, env: Env): Promise<void> {
   const logger = Logger.forService('DailySummaryInitiator');
@@ -26,10 +19,8 @@ export async function queue(batch: MessageBatch<DailySummaryMessage>, env: Env):
     messageCount: batch.messages.length,
   });
 
-  // Setup database
   await setupDb(env);
 
-  // Process messages sequentially to avoid database conflicts
   for (const message of batch.messages) {
     try {
       await processDailySummaryInitiatorMessage(message, env, logger);
@@ -39,19 +30,14 @@ export async function queue(batch: MessageBatch<DailySummaryMessage>, env: Env):
         messageId: message.body.requestId,
       });
 
-      // Determine if message should be retried
       const shouldRetry = isRetryableError(error);
       if (!shouldRetry) {
-        message.ack(); // Don't retry
+        message.ack();
       }
-      // If retryable, don't ack and let the queue retry
     }
   }
 }
 
-/**
- * Process a single daily summary initiator message
- */
 async function processDailySummaryInitiatorMessage(
   message: Message<DailySummaryMessage>,
   env: Env,
@@ -60,7 +46,6 @@ async function processDailySummaryInitiatorMessage(
   const startTime = Date.now();
 
   try {
-    // Validate message
     const validatedMessage = validateQueueMessage(message.body, DailySummaryMessageSchema);
 
     logger.info('Processing daily summary initiator message', {
@@ -70,31 +55,31 @@ async function processDailySummaryInitiatorMessage(
       force: validatedMessage.force,
     });
 
-    // Config manager would be initialized here if needed for future enhancements
-
-    // Parse date from string
     const targetDate = new Date(validatedMessage.date);
     const startOfDay = new Date(targetDate);
     startOfDay.setUTCHours(0, 0, 0, 0);
     const endOfDay = new Date(targetDate);
     endOfDay.setUTCHours(23, 59, 59, 999);
 
-    // Get database instance
+    const startTs = toTimestamp(startOfDay)!;
+    const endTs = toTimestamp(endOfDay)!;
+
     const db = getDb(env);
 
-    // Query articles for the specified date
-    const whereConditions = [gte(articles.pubDate, startOfDay), lt(articles.pubDate, endOfDay)];
+    // Build the query with joins
+    let query = db
+      .selectFrom('Article')
+      .innerJoin('Feed', 'Article.feedId', 'Feed.id')
+      .selectAll('Article')
+      .selectAll('Feed')
+      .where('Article.pubDate', '>=', startTs)
+      .where('Article.pubDate', '<', endTs);
 
-    // Add feed filter if specified
     if (validatedMessage.feedName) {
-      whereConditions.push(eq(feeds.name, validatedMessage.feedName));
+      query = query.where('Feed.name', '=', validatedMessage.feedName);
     }
 
-    const articlesWithFeeds = await db
-      .select()
-      .from(articles)
-      .innerJoin(feeds, eq(articles.feedId, feeds.id))
-      .where(and(...whereConditions));
+    const articlesWithFeeds = await query.execute();
 
     if (articlesWithFeeds.length === 0) {
       logger.info('No articles found for daily summary', {
@@ -108,16 +93,18 @@ async function processDailySummaryInitiatorMessage(
     // Group articles by feed
     const articlesByFeed = new Map<
       string,
-      Array<{ article: typeof articles.$inferSelect; feed: typeof feeds.$inferSelect }>
+      Array<{ articleId: string; feedName: string }>
     >();
 
     for (const row of articlesWithFeeds) {
-      const feedName = row.Feed.name;
+      const feedName = row.name;
       if (!articlesByFeed.has(feedName)) {
         articlesByFeed.set(feedName, []);
       }
-      const feedArticles = articlesByFeed.get(feedName);
-      feedArticles?.push({ article: row.Article, feed: row.Feed });
+      articlesByFeed.get(feedName)?.push({
+        articleId: row.id,
+        feedName: row.name,
+      });
     }
 
     logger.info('Articles grouped by feed', {
@@ -128,24 +115,20 @@ async function processDailySummaryInitiatorMessage(
       feeds: Array.from(articlesByFeed.keys()),
     });
 
-    // Initialize queue dispatcher for sending processing tasks
     const queueDispatcher = QueueDispatcher.create(env);
 
-    // Dispatch processing tasks for each feed
     const dispatchPromises = Array.from(articlesByFeed.entries()).map(
       async ([feedName, feedArticles]) => {
         try {
-          // Create processing message
           const processorMessage = {
             requestId: validatedMessage.requestId,
             date: validatedMessage.date,
             feedName,
-            articleIds: feedArticles.map((a) => a.article.id),
+            articleIds: feedArticles.map((a) => a.articleId),
             force: validatedMessage.force || false,
             timestamp: new Date().toISOString(),
           };
 
-          // Send to processor queue
           await queueDispatcher.sendToDailySummaryProcessorQueue(processorMessage);
 
           logger.info('Daily summary processing task dispatched', {
@@ -164,7 +147,6 @@ async function processDailySummaryInitiatorMessage(
       }
     );
 
-    // Wait for all dispatch operations to complete
     await Promise.all(dispatchPromises);
 
     const duration = Date.now() - startTime;
@@ -187,11 +169,7 @@ async function processDailySummaryInitiatorMessage(
       duration,
       error:
         error instanceof Error
-          ? {
-              message: error.message,
-              stack: error.stack,
-              name: error.name,
-            }
+          ? { message: error.message, stack: error.stack, name: error.name }
           : String(error),
       err: error,
     });
@@ -200,16 +178,11 @@ async function processDailySummaryInitiatorMessage(
   }
 }
 
-/**
- * Determine if an error should trigger a retry
- */
 function isRetryableError(error: unknown): boolean {
-  // Don't retry validation errors
   if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError') {
     return false;
   }
 
-  // Don't retry permanent API errors
   if (error instanceof ApiError) {
     if (error.statusCode >= 400 && error.statusCode < 500) {
       return false;
@@ -217,7 +190,6 @@ function isRetryableError(error: unknown): boolean {
     return true;
   }
 
-  // Retry database errors (temporary issues)
   if (
     error &&
     typeof error === 'object' &&
@@ -227,7 +199,6 @@ function isRetryableError(error: unknown): boolean {
     return true;
   }
 
-  // Retry network errors, timeouts, etc.
   const retryablePatterns = [
     /timeout/i,
     /network/i,
@@ -241,7 +212,6 @@ function isRetryableError(error: unknown): boolean {
   return retryablePatterns.some((pattern) => pattern.test(errorMessage));
 }
 
-// Type definitions for Cloudflare Queue messages
 interface Message<T = unknown> {
   id: string;
   timestamp: Date;

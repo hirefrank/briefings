@@ -1,18 +1,10 @@
-// Env type is globally defined
 import type { ScheduledEvent, ExecutionContext } from '@cloudflare/workers-types';
 import { Logger } from '../../lib/logger.js';
 import { QueueDispatcher } from '../utils/queue-dispatcher.js';
-import { getDb, setupDb, feeds } from '../../db.js';
-import { eq } from 'drizzle-orm';
+import { getDb, setupDb } from '../../db.js';
 
 /**
  * Cron handler for validating all active feeds
- * Scheduled to run daily to catch feeds that may have gone bad
- *
- * Responsibilities:
- * 1. Load all active feeds
- * 2. Queue validation for each feed
- * 3. Track validation metrics
  */
 export async function scheduled(
   event: ScheduledEvent,
@@ -28,12 +20,14 @@ export async function scheduled(
   });
 
   try {
-    // Setup database
     await setupDb(env);
     const db = getDb(env);
 
-    // Load all active feeds
-    const activeFeeds = await db.select().from(feeds).where(eq(feeds.isActive, true));
+    const activeFeeds = await db
+      .selectFrom('Feed')
+      .selectAll()
+      .where('isActive', '=', 1)
+      .execute();
 
     if (activeFeeds.length === 0) {
       logger.warn('No active feeds found for validation');
@@ -42,14 +36,12 @@ export async function scheduled(
 
     logger.info('Found active feeds for validation', {
       total: activeFeeds.length,
-      valid: activeFeeds.filter((f) => f.isValid).length,
-      invalid: activeFeeds.filter((f) => !f.isValid).length,
+      valid: activeFeeds.filter((f) => f.isValid === 1).length,
+      invalid: activeFeeds.filter((f) => f.isValid !== 1).length,
     });
 
-    // Initialize queue dispatcher
     const queueDispatcher = QueueDispatcher.create(env);
 
-    // Track results
     const results = {
       total: activeFeeds.length,
       queued: 0,
@@ -57,7 +49,6 @@ export async function scheduled(
       skipped: 0,
     };
 
-    // Queue validation for all feeds
     const validationPromises = activeFeeds.map(async (feed) => {
       try {
         await queueDispatcher.sendFeedFetchMessage({
@@ -77,7 +68,6 @@ export async function scheduled(
       }
     });
 
-    // Wait for all validation messages to be queued
     await Promise.all(validationPromises);
 
     const duration = Date.now() - startTime;

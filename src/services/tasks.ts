@@ -1,10 +1,8 @@
-// @ts-nocheck - Legacy code with type mismatches, needs refactoring
-// Env type is globally defined
 import type { IFeedService, ISummarizationService, ILogger } from './interfaces.js';
 import type { Db } from '../db.js';
+import type { DailySummary } from '../db/types.js';
+import { toTimestamp, fromTimestamp } from '../db/helpers.js';
 import { format } from 'date-fns';
-import { eq, and, gte, lte } from 'drizzle-orm';
-import { dailySummaries, weeklySummaries } from '../db/schema.js';
 
 /**
  * Task: Fetch all active feeds
@@ -72,12 +70,13 @@ export async function generateDailySummaryTask(
   try {
     // Check if summary already exists
     if (!forceRegenerate) {
+      const targetTs = toTimestamp(targetDate);
       const existingSummary = await db
-        .select()
-        .from(dailySummaries)
-        .where(eq(dailySummaries.summaryDate, targetDate))
+        .selectFrom('DailySummary')
+        .selectAll()
+        .where('summaryDate', '=', targetTs!)
         .limit(1)
-        .then((rows) => rows[0] || null);
+        .executeTakeFirst();
 
       if (existingSummary) {
         logger.info('Daily summary already exists, skipping generation');
@@ -109,7 +108,7 @@ export async function generateDailySummaryTask(
     const savedSummary = await summarizationService.saveDailySummary(
       {
         feedId,
-        summaryDate: targetDate,
+        summaryDate: toTimestamp(targetDate)!,
         summaryContent,
         structuredContent: null,
         schemaVersion: '1.0',
@@ -164,19 +163,18 @@ export async function generateWeeklySummaryTask(
   );
 
   try {
+    const weekStartTs = toTimestamp(weekStartDate)!;
+    const endTs = toTimestamp(endDate)!;
+
     // Check if summary already exists
     if (!forceRegenerate && !skipDbSave) {
       const existingSummary = await db
-        .select()
-        .from(weeklySummaries)
-        .where(
-          and(
-            eq(weeklySummaries.weekStartDate, weekStartDate),
-            eq(weeklySummaries.weekEndDate, endDate)
-          )
-        )
+        .selectFrom('WeeklySummary')
+        .selectAll()
+        .where('weekStartDate', '=', weekStartTs)
+        .where('weekEndDate', '=', endTs)
         .limit(1)
-        .then((rows) => rows[0] || null);
+        .executeTakeFirst();
 
       if (existingSummary) {
         logger.info('Weekly summary already exists, skipping generation');
@@ -186,15 +184,12 @@ export async function generateWeeklySummaryTask(
 
     // Get daily summaries for the week
     const dailySummariesList = await db
-      .select()
-      .from(dailySummaries)
-      .where(
-        and(
-          gte(dailySummaries.summaryDate, weekStartDate),
-          lte(dailySummaries.summaryDate, endDate)
-        )
-      )
-      .orderBy(dailySummaries.summaryDate);
+      .selectFrom('DailySummary')
+      .selectAll()
+      .where('summaryDate', '>=', weekStartTs)
+      .where('summaryDate', '<=', endTs)
+      .orderBy('summaryDate')
+      .execute();
 
     if (dailySummariesList.length === 0) {
       logger.info('No daily summaries found for the specified week');
@@ -225,8 +220,8 @@ export async function generateWeeklySummaryTask(
     // Save weekly summary
     const savedSummary = await summarizationService.saveWeeklySummary(
       {
-        weekStartDate,
-        weekEndDate: endDate,
+        weekStartDate: weekStartTs,
+        weekEndDate: endTs,
         title,
         recapContent: sections.recapContent,
         belowTheFoldContent: sections.belowTheFold || null,

@@ -1,14 +1,10 @@
-// @ts-nocheck - Legacy code with type mismatches, needs refactoring
-// Env type is globally defined
 import {
   Logger,
   FeedService,
-  ConfigManager,
   ApiError,
   DatabaseError,
 } from '../../services/index.js';
-import { getDb, setupDb, feeds } from '../../db.js';
-import { eq } from 'drizzle-orm';
+import { getDb, setupDb } from '../../db.js';
 import {
   validateQueueMessage,
   FeedFetchMessageSchema,
@@ -105,12 +101,8 @@ async function processFeedFetchMessage(
       return;
     }
 
-    // Initialize config manager
-    const configManager = new ConfigManager(logger.child({ component: 'ConfigManager' }));
-
     // Initialize feed service
     const feedService = new FeedService({
-      configManager,
       logger: logger.child({ component: 'FeedService' }),
     });
 
@@ -129,23 +121,30 @@ async function processFeedFetchMessage(
     const db = getDb(env);
 
     // Get or create feed
-    const [existingFeed] = await db
-      .select()
-      .from(feeds)
-      .where(eq(feeds.url, validatedMessage.feedUrl))
-      .limit(1);
+    const existingFeed = await db
+      .selectFrom('Feed')
+      .selectAll()
+      .where('url', '=', validatedMessage.feedUrl)
+      .limit(1)
+      .executeTakeFirst();
 
     let feed = existingFeed;
     if (!feed) {
-      const [newFeed] = await db
-        .insert(feeds)
+      const now = Date.now();
+      feed = await db
+        .insertInto('Feed')
         .values({
+          id: crypto.randomUUID(),
           name: validatedMessage.feedName,
           url: validatedMessage.feedUrl,
-          isActive: true,
+          isActive: 1,
+          isValid: 1,
+          errorCount: 0,
+          createdAt: now,
+          updatedAt: now,
         })
-        .returning();
-      feed = newFeed;
+        .returningAll()
+        .executeTakeFirstOrThrow();
     }
 
     // Process the feed items
@@ -155,7 +154,6 @@ async function processFeedFetchMessage(
     try {
       await feedService.updateFeedTimestamp(feed.id, env);
     } catch (timestampError) {
-      // Log warning but don't fail the entire operation
       logger.warn('Failed to update feed timestamp', {
         feedId: feed.id,
         feedName: validatedMessage.feedName,
@@ -164,26 +162,6 @@ async function processFeedFetchMessage(
     }
 
     const duration = Date.now() - startTime;
-
-    // Send Slack notification if articles were saved - DISABLED
-    // if (result.length > 0) {
-    //   const slackConfig = {
-    //     webhookUrl: env.SLACK_WEBHOOK_URL,
-    //     botToken: env.SLACK_TOKEN,
-    //     defaultChannel: env.SLACK_DEFAULT_CHANNEL || '#general',
-    //     enabled: env.SLACK_ENABLED === 'true',
-    //   };
-
-    //   const slackPublisher = createSlackPublisher(slackConfig);
-
-    //   if (slackPublisher.isEnabled) {
-    //     const message = `Fetched ${result.length} new article${result.length !== 1 ? 's' : ''} from ${validatedMessage.feedName}`;
-    //     await slackPublisher.publish(`ℹ️ ${message}`, {
-    //       username: 'Briefings Bot',
-    //       iconEmoji: ':newspaper:',
-    //     });
-    //   }
-    // }
 
     logger.info('Feed fetch completed successfully', {
       requestId: validatedMessage.requestId,
@@ -209,13 +187,13 @@ async function processFeedFetchMessage(
 
     // Update feed error information (if we have a feed ID)
     try {
-      // Try to get the feed ID for error tracking
       const db = getDb(env);
-      const [existingFeed] = await db
-        .select()
-        .from(feeds)
-        .where(eq(feeds.url, messageData.feedUrl))
-        .limit(1);
+      const existingFeed = await db
+        .selectFrom('Feed')
+        .selectAll()
+        .where('url', '=', messageData.feedUrl)
+        .limit(1)
+        .executeTakeFirst();
 
       if (existingFeed) {
         const feedService = new FeedService({
@@ -226,13 +204,11 @@ async function processFeedFetchMessage(
         await feedService.updateFeedError(existingFeed.id, errorMessage, env);
       }
     } catch (updateError) {
-      // Log but don't fail - error tracking is not critical
       logger.debug('Failed to update feed error information', {
         updateError: updateError instanceof Error ? updateError.message : String(updateError),
       });
     }
 
-    // Re-throw to trigger queue retry logic if appropriate
     throw error;
   }
 }
@@ -254,22 +230,23 @@ async function validateFeed(
       feedName: message.feedName,
     });
 
-    // Validate the RSS feed
     const validationResult = await validateRssFeed(message.feedUrl);
 
-    // Update feed in database
     const updates: Record<string, unknown> = {
-      isValid: validationResult.isValid,
+      isValid: validationResult.isValid ? 1 : 0,
       validationError: validationResult.isValid ? null : validationResult.error,
-      updatedAt: new Date(),
+      updatedAt: Date.now(),
     };
 
-    // If validation returned a title and feed is valid, update the name
     if (validationResult.isValid && validationResult.title) {
       updates.name = validationResult.title;
     }
 
-    await db.update(feeds).set(updates).where(eq(feeds.url, message.feedUrl));
+    await db
+      .updateTable('Feed')
+      .set(updates)
+      .where('url', '=', message.feedUrl)
+      .execute();
 
     const duration = Date.now() - startTime;
 
@@ -279,28 +256,6 @@ async function validateFeed(
       error: validationResult.error,
       duration,
     });
-
-    // Send Slack notification if feed is invalid - DISABLED
-    // if (!validationResult.isValid && env.SLACK_ENABLED === 'true') {
-    //   const slackConfig = {
-    //     webhookUrl: env.SLACK_WEBHOOK_URL,
-    //     botToken: env.SLACK_TOKEN,
-    //     defaultChannel: env.SLACK_DEFAULT_CHANNEL || '#general',
-    //     enabled: true,
-    //   };
-
-    //   const slackPublisher = createSlackPublisher(slackConfig);
-
-    //   if (slackPublisher.isEnabled) {
-    //     await slackPublisher.publish(
-    //       `⚠️ Feed validation failed for ${message.feedName}: ${validationResult.error}`,
-    //       {
-    //         username: 'Briefings Bot',
-    //         iconEmoji: ':warning:',
-    //       }
-    //     );
-    //   }
-    // }
   } catch (error) {
     const duration = Date.now() - startTime;
 
@@ -310,16 +265,16 @@ async function validateFeed(
       duration,
     });
 
-    // Mark feed as invalid with error
     try {
       await db
-        .update(feeds)
+        .updateTable('Feed')
         .set({
-          isValid: false,
+          isValid: 0,
           validationError: error instanceof Error ? error.message : 'Validation failed',
-          updatedAt: new Date(),
+          updatedAt: Date.now(),
         })
-        .where(eq(feeds.url, message.feedUrl));
+        .where('url', '=', message.feedUrl)
+        .execute();
     } catch (updateError) {
       logger.error('Failed to update feed validation status', {
         feedUrl: message.feedUrl,
@@ -335,21 +290,17 @@ async function validateFeed(
  * Determine if an error should trigger a retry
  */
 function isRetryableError(error: unknown): boolean {
-  // Don't retry validation errors
   if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError') {
     return false;
   }
 
-  // Don't retry permanent API errors
   if (error instanceof ApiError) {
-    // Don't retry client errors (4xx), but retry server errors (5xx)
     if (error.statusCode >= 400 && error.statusCode < 500) {
       return false;
     }
     return true;
   }
 
-  // Don't retry database constraint violations
   if (error instanceof DatabaseError) {
     if (error.context?.operation === 'constraint_violation') {
       return false;
@@ -357,7 +308,6 @@ function isRetryableError(error: unknown): boolean {
     return true;
   }
 
-  // Retry network errors, timeouts, etc.
   const retryablePatterns = [
     /timeout/i,
     /network/i,

@@ -1,5 +1,5 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "briefings-oss"
+name = "briefings"
 main = "dist/index.js"
 workers_dev = true
 compatibility_date = "2024-09-23"
@@ -13,9 +13,10 @@ account_id = "your-cloudflare-account-id"
 [observability]
 enabled = true
 
-# Custom build configuration
-[build]
-command = "node build.mjs"
+# Import YAML config files as text modules
+[[rules]]
+type = "Text"
+globs = ["**/*.yaml"]
 
 # Environment variables
 [vars]

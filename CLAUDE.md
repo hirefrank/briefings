@@ -10,11 +10,10 @@ pnpm dev                    # Start local dev server with wrangler
 pnpm tail                   # View real-time production logs
 
 # Database
-pnpm db:generate            # Generate Drizzle migrations from schema changes
 pnpm db:migrate:local       # Apply migrations to local D1
 pnpm db:migrate:remote      # Apply migrations to remote D1
-pnpm db:studio              # Open Drizzle Studio GUI
 pnpm db:seed                # Seed database with sample feeds
+pnpm sync:feeds             # Sync feeds from config/feeds.yaml to D1
 
 # Testing & Types
 pnpm test                   # Run tests with vitest
@@ -65,14 +64,17 @@ Queue consumers live in `src/server-functions/queues/`:
 
 ### Database Schema
 
-Schema defined in `src/db/schema.ts` using Drizzle ORM:
+Types defined in `src/db/types.ts` using Kysely (type-safe SQL query builder):
 
-- `feeds` - RSS feed sources with validation state
-- `articles` - Fetched articles with `processed` flag
-- `dailySummaries` - AI-generated daily summaries linked to feeds
-- `weeklySummaries` - Weekly digest records with `sentAt` tracking
-- `feedGroups` - Optional grouping of feeds
-- `promptTemplates` - Customizable AI prompt storage
+- `Feed` - RSS feed sources with validation state
+- `Article` - Fetched articles with `processed` flag
+- `DailySummary` - AI-generated daily summaries linked to feeds
+- `WeeklySummary` - Weekly digest records with `sentAt` tracking
+- `ArticleSummaryRelation` - Links articles to daily summaries
+- `DailyWeeklySummaryRelation` - Links daily summaries to weekly summaries
+- `PromptTemplate` - Customizable AI prompt storage
+
+Helper functions in `src/db/helpers.ts`: `toTimestamp()`, `fromTimestamp()`, `toBool()`, `fromBool()`.
 
 ### Cloudflare Bindings
 
@@ -119,8 +121,11 @@ Crons are mapped in `src/index.ts`:
 
 ### HTTP Endpoints
 
-- `GET/POST /run/feed-fetch` - Manual feed fetch trigger
-- `GET/POST /run/daily-summary` - Manual daily summary trigger
-- `GET/POST /run/weekly-summary` - Manual weekly digest trigger
-- `GET /health` - Health check
-- `POST /seed` - Database seeding (requires API key)
+All operational routes are under the `/api` prefix:
+
+- `GET /api/health` - Health check
+- `GET/POST /api/run/feed-fetch` - Manual feed fetch trigger
+- `GET/POST /api/run/daily-summary` - Manual daily summary trigger
+- `GET/POST /api/run/weekly-summary` - Manual weekly digest trigger
+- `POST /api/seed` - Database seeding (requires API key)
+- `GET /api/test/previous-context` - Test endpoint (development)
