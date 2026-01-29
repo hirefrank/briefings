@@ -271,6 +271,12 @@ pnpm sync:feeds
 ### Deploy
 
 ```bash
+# First-time setup: Create queues (run once)
+wrangler queues create briefings-feed-fetch
+wrangler queues create briefings-daily-summary-initiator
+wrangler queues create briefings-daily-summary-processor
+wrangler queues create briefings-weekly-digest
+
 # Deploy to Cloudflare Workers
 pnpm run deploy
 
