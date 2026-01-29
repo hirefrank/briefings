@@ -54,7 +54,7 @@
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
 │  │                         Cloudflare Bindings                             │ │
 │  │  • DB: D1 Database           • KV: BRIEFINGS_CONFIG_KV                        │ │
-│  │  • R2: MARKDOWN_OUTPUT_R2    • Queues: 4 queue consumers                │ │
+│  │  • R2: briefings_md_output    • Queues: 4 queue consumers               │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -137,7 +137,7 @@ Schema defined in `src/db/types.ts`:
 
 #### R2 Bucket
 
-`MARKDOWN_OUTPUT_R2` for storing digest history, used as context for future digests.
+`briefings_md_output` for storing digest history, used as context for future digests.
 
 ### Cloudflare Bindings
 
@@ -145,7 +145,7 @@ Defined in `src/types/env.d.ts`, configured in `wrangler.toml`:
 
 - **DB**: D1 database
 - **BRIEFINGS_CONFIG_KV**: KV namespace
-- **MARKDOWN_OUTPUT_R2**: R2 bucket
+- **briefings_md_output**: R2 bucket
 - **Queues**: `FEED_FETCH_QUEUE`, `DAILY_SUMMARY_INITIATOR_QUEUE`, `DAILY_SUMMARY_PROCESSOR_QUEUE`, `WEEKLY_DIGEST_QUEUE`
 
 ### Security
@@ -318,11 +318,61 @@ curl -X POST https://your-worker.workers.dev/run/weekly-digest \
 
 The system runs automatically via cron triggers (configured in `wrangler.toml`):
 
-- **Feed Fetch**: Every 4 hours
-- **Daily Summary**: 10 AM UTC daily (adjust for your timezone)
-- **Feed Validation**: 6 AM UTC daily
+| Job | Cron | ET Time | Purpose |
+|-----|------|---------|---------|
+| **Feed Fetch** | `0 */4 * * *` | Every 4 hours | Fetch articles from all active RSS feeds |
+| **Daily Summary** | `0 10 * * *` | 5:00 AM ET | Generate AI summaries for yesterday's articles |
+| **Feed Validation** | `0 6 * * *` | 1:00 AM ET | Validate feed URLs are reachable |
+| **Weekly Digest** | `0 13 * * 0` | 8:00 AM ET Sunday | Generate weekly recap and send email |
 
-Weekly digests are manually triggered or can be scheduled separately.
+**Note on ET times:** Eastern Time varies between EST (UTC-5) and EDT (UTC-4) depending on daylight saving time. The cron schedules use UTC, so:
+- **Winter (EST)**: Daily summaries run at 5:00 AM ET
+- **Summer (EDT)**: Daily summaries run at 6:00 AM ET
+
+### Week Definition
+
+A week is defined as **Monday through Sunday** (7 days). The weekly digest:
+- Runs every Sunday at 8:00 AM ET
+- Summarizes the previous Monday through Sunday
+- Requires all daily summaries to be complete before running
+
+### Manual Weekly Digest Operations
+
+**Generate weekly digest for current week:**
+```bash
+# Trigger via HTTP API (uses current week: Monday to today)
+curl -X POST https://your-worker.workers.dev/api/run/weekly-summary \
+  -H "X-API-Key: your-api-key"
+```
+
+**Generate for a specific week:**
+```bash
+# Specify exact date range
+curl -X POST https://your-worker.workers.dev/api/run/weekly-summary \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "weekStartDate": "2025-01-13",
+    "weekEndDate": "2025-01-19"
+  }'
+```
+
+**Force regeneration (if already exists):**
+```bash
+curl -X POST https://your-worker.workers.dev/api/run/weekly-summary \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "weekEndDate": "2025-01-19",
+    "force": true
+  }'
+```
+
+**Check weekly digest status:**
+```bash
+curl -X GET https://your-worker.workers.dev/api/run/weekly-summary \
+  -H "X-API-Key: your-api-key"
+```
 
 ## Local Development
 

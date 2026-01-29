@@ -26,6 +26,7 @@ import { requireApiKey, checkApiKey } from './server-functions/http/middleware';
 // Import cron handlers
 import { scheduled as feedFetchCron } from './server-functions/crons/initiate-feed-fetch';
 import { scheduled as dailySummaryCron } from './server-functions/crons/initiate-daily-summary';
+import { scheduled as weeklyDigestCron } from './server-functions/crons/initiate-weekly-digest';
 import { scheduled as validateFeedsCron } from './server-functions/crons/validate-feeds';
 
 // Import queue handlers
@@ -144,8 +145,9 @@ export default {
     // Map cron expressions to handlers
     const cronHandlers: Record<string, typeof feedFetchCron> = {
       '0 */4 * * *': feedFetchCron, // Every 4 hours
-      '0 10 * * *': dailySummaryCron, // Daily at 5 AM EST (10 AM UTC)
-      '0 6 * * *': validateFeedsCron, // Daily at 1 AM EST (6 AM UTC) - validate feeds
+      '0 10 * * *': dailySummaryCron, // Daily at 5 AM ET (10 AM UTC)
+      '0 6 * * *': validateFeedsCron, // Daily at 1 AM ET (6 AM UTC) - validate feeds
+      '0 13 * * 0': weeklyDigestCron, // Sundays at 8 AM ET (1 PM UTC)
     };
 
     const handler = cronHandlers[event.cron];

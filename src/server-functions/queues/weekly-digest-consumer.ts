@@ -100,7 +100,7 @@ async function processWeeklyDigest(
 
   // STEP 2: Fetch historical context from R2
   try {
-    const r2Storage = createR2Storage(env.MARKDOWN_OUTPUT_R2);
+    const r2Storage = createR2Storage(env.briefings_md_output);
     const context = await r2Storage.buildDigestContext(4);
 
     if (context.recentTitles.length > 0) {
@@ -167,7 +167,7 @@ async function processWeeklyDigest(
 
   // STEP 6: Store to R2
   try {
-    const r2Storage = createR2Storage(env.MARKDOWN_OUTPUT_R2);
+    const r2Storage = createR2Storage(env.briefings_md_output);
 
     await r2Storage.storeDigest({
       weekStart: format(weekStart, 'yyyy-MM-dd'),

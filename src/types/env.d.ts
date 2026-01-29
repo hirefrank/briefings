@@ -8,7 +8,7 @@ declare global {
     PROMPTS_KV?: KVNamespace;
 
     // R2 Buckets
-    MARKDOWN_OUTPUT_R2: R2Bucket;
+    briefings_md_output: R2Bucket;
 
     // Queue Bindings
     FEED_FETCH_QUEUE: Queue;

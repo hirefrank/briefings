@@ -60,12 +60,12 @@ export async function GET(env: Env): Promise<Response> {
 
     // Check R2 bucket access
     try {
-      if (env.MARKDOWN_OUTPUT_R2) {
+      if (env.briefings_md_output) {
         // Try to list objects (should work even if bucket is empty)
-        await env.MARKDOWN_OUTPUT_R2.list({ limit: 1 });
+        await env.briefings_md_output.list({ limit: 1 });
         checks.r2 = true;
       } else {
-        errors.push("R2: MARKDOWN_OUTPUT_R2 binding not found");
+        errors.push("R2: briefings_md_output binding not found");
       }
     } catch (error) {
       errors.push(

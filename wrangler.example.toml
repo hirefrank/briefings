@@ -44,17 +44,18 @@ binding = "BRIEFINGS_CONFIG_KV"
 id = "your-kv-namespace-id"
 
 # R2 Bucket for markdown output and digest history
-# Create with: wrangler r2 bucket create briefings-markdown-output
+# Create with: wrangler r2 bucket create briefings-md-output
 [[r2_buckets]]
-binding = "MARKDOWN_OUTPUT_R2"
-bucket_name = "briefings-markdown-output"
+binding = "briefings_md_output"
+bucket_name = "briefings-md-output"
 
 # Cron triggers
 [triggers]
 crons = [
   "0 */4 * * *",     # Feed fetch - every 4 hours
-  "0 10 * * *",      # Daily summary - 10 AM UTC (adjust for your timezone)
-  "0 6 * * *"        # Validate feeds - 6 AM UTC (adjust for your timezone)
+  "0 10 * * *",      # Daily summary - 10 AM UTC = 5 AM ET
+  "0 6 * * *",       # Validate feeds - 6 AM UTC = 1 AM ET
+  "0 13 * * 0"       # Weekly digest - Sundays 1 PM UTC = 8 AM ET
 ]
 
 # Queue producers (4 simplified queues)

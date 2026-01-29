@@ -9,10 +9,10 @@
 
 export const GEMINI_MODELS = {
   // Flash model - faster, cheaper, used for daily summaries and clustering
-  FLASH: 'gemini-2.5-flash',
+  FLASH: "gemini-3-flash-preview",
 
   // Pro model - more capable, used for final weekly digest
-  PRO: 'gemini-2.5-pro',
+  PRO: "gemini-3-pro-preview",
 } as const;
 
 // ============================================================================
