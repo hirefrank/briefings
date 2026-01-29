@@ -149,27 +149,6 @@ export async function parseRequestBody<T>(request: Request, schema: z.ZodSchema<
 }
 
 /**
- * Validate queue message
- */
-export function validateQueueMessage<T>(message: unknown, schema: z.ZodSchema<T>): T {
-  try {
-    return schema.parse(message);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const validationErrors = error.errors.map((err) => ({
-        field: err.path.join('.'),
-        message: err.message,
-        code: err.code,
-      }));
-
-      throw new ValidationError('Queue message validation failed', validationErrors);
-    }
-
-    throw error;
-  }
-}
-
-/**
  * Create success response
  */
 export function createSuccessResponse(

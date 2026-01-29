@@ -5,7 +5,7 @@
  * SQLite stores booleans as 0/1 integers and timestamps as unix-ms integers.
  */
 
-import type { Generated, Insertable, Selectable, Updateable } from 'kysely';
+import type { Generated, Insertable, Selectable } from 'kysely';
 
 // ---------------------------------------------------------------------------
 // Table interfaces
@@ -111,9 +111,6 @@ export type Feed = Selectable<FeedTable>;
 export type Article = Selectable<ArticleTable>;
 export type DailySummary = Selectable<DailySummaryTable>;
 export type WeeklySummary = Selectable<WeeklySummaryTable>;
-export type ArticleSummaryRelation = Selectable<ArticleSummaryRelationTable>;
-export type DailyWeeklySummaryRelation = Selectable<DailyWeeklySummaryRelationTable>;
-export type PromptTemplate = Selectable<PromptTemplateTable>;
 
 // ---------------------------------------------------------------------------
 // Insert types
@@ -123,12 +120,3 @@ export type NewFeed = Insertable<FeedTable>;
 export type NewArticle = Insertable<ArticleTable>;
 export type NewDailySummary = Insertable<DailySummaryTable>;
 export type NewWeeklySummary = Insertable<WeeklySummaryTable>;
-
-// ---------------------------------------------------------------------------
-// Update types
-// ---------------------------------------------------------------------------
-
-export type FeedUpdate = Updateable<FeedTable>;
-export type ArticleUpdate = Updateable<ArticleTable>;
-export type DailySummaryUpdate = Updateable<DailySummaryTable>;
-export type WeeklySummaryUpdate = Updateable<WeeklySummaryTable>;

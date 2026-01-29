@@ -5,6 +5,7 @@ import {
   DatabaseError,
 } from '../../services/index.js';
 import { getDb, setupDb } from '../../db.js';
+import type { NewFeed } from '../../db/types.js';
 import {
   validateQueueMessage,
   FeedFetchMessageSchema,
@@ -142,7 +143,7 @@ async function processFeedFetchMessage(
           errorCount: 0,
           createdAt: now,
           updatedAt: now,
-        })
+        } satisfies NewFeed)
         .returningAll()
         .executeTakeFirstOrThrow();
     }

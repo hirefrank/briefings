@@ -21,9 +21,6 @@ export type { GeminiGenerationConfig, GeminiResponse } from './gemini.js';
 export { R2Storage, createR2Storage } from './r2.js';
 export type { StoredDigest, DigestContext } from './r2.js';
 
-// Types
-export * from './types.js';
-
 // Prompts
 export * from './prompts.js';
 

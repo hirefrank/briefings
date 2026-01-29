@@ -1,4 +1,5 @@
 import { getDb, setupDb } from '../db.js';
+import type { NewFeed } from '../db/types.js';
 import { Logger } from '../lib/logger.js';
 import { parseFeedsConfig } from '../lib/config.js';
 import feedsYaml from '../../config/feeds.yaml';
@@ -28,7 +29,7 @@ export async function seedDatabase(env: Env): Promise<void> {
           errorCount: 0,
           createdAt: now,
           updatedAt: now,
-        })
+        } satisfies NewFeed)
         .onConflict((oc) => oc.doNothing())
         .execute();
     } catch {

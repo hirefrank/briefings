@@ -2,15 +2,12 @@
  * Service interfaces for the Briefings system
  */
 
-import type { PublishResult, GeminiGenerationConfig, GeminiResponse } from '../types/index.js';
+import type { GeminiGenerationConfig, GeminiResponse } from '../types/index.js';
 import type { Db } from '../db.js';
 import type { Feed, Article, DailySummary, WeeklySummary } from '../db/types.js';
 
 // Re-export row types for convenience
 export type { Article, DailySummary, WeeklySummary, Feed };
-
-// Re-export PublishResult for convenience
-export type { PublishResult };
 
 // Logger Interface
 export interface ILogger {
@@ -97,80 +94,4 @@ export interface IGeminiClient {
       onRetry?: (attempt: number, error: Error) => void;
     }
   ): Promise<GeminiResponse>;
-}
-
-// Prompt Manager Interface
-export interface IPromptManager {
-  loadPrompt(env: Env, name: string): Promise<string>;
-  compileTemplate(content: string): HandlebarsTemplateDelegate;
-  render(name: string, context: Record<string, unknown>, env: Env): Promise<string>;
-}
-
-// Handlebars type (simplified for interface)
-export interface HandlebarsTemplateDelegate {
-  (context: Record<string, unknown>): string;
-}
-
-// Publisher Interface (base)
-export interface IPublisher {
-  publish(summary: DailySummary | WeeklySummary, type: 'daily' | 'weekly'): Promise<PublishResult>;
-
-  isEnabled(): boolean;
-}
-
-// Specific Publisher Interfaces
-export interface ISlackPublisher extends IPublisher {
-  publishToChannel(
-    content: string,
-    channel: string,
-    options?: {
-      username?: string;
-      iconEmoji?: string;
-      blocks?: unknown[];
-    }
-  ): Promise<PublishResult>;
-}
-
-export interface ILexPagePublisher extends IPublisher {
-  createDocument(title: string, content: string): Promise<string>;
-}
-
-export interface IR2Publisher extends IPublisher {
-  uploadFile(
-    path: string,
-    content: string,
-    metadata?: Record<string, string>
-  ): Promise<PublishResult>;
-
-  listFiles(prefix?: string): Promise<string[]>;
-
-  deleteFile(path: string): Promise<void>;
-}
-
-// Config Manager Interface
-export interface IConfigManager {
-  getPrompt(env: Env, name: string): Promise<string>;
-  getSecret(env: Env, key: keyof Env): string;
-  getVar(env: Env, key: keyof Env, defaultValue?: string): string;
-  validateEnv(env: unknown): env is Env;
-}
-
-// Service Initializer Interface
-export interface IServiceInitializer {
-  initializeServices(env: Env): Promise<ServiceInstances>;
-}
-
-export interface ServiceInstances {
-  logger: ILogger;
-  db: Db;
-  configManager: IConfigManager;
-  feedService: IFeedService;
-  summarizationService: ISummarizationService;
-  geminiClient: IGeminiClient;
-  promptManager: IPromptManager;
-  publishers: {
-    slack?: ISlackPublisher;
-    lexpage?: ILexPagePublisher;
-    r2?: IR2Publisher;
-  };
 }

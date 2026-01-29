@@ -21,10 +21,8 @@ export const GEMINI_MODELS = {
 
 export const DEFAULT_MODELS = {
   DAILY_SUMMARY: GEMINI_MODELS.FLASH,
-  TOPIC_CLUSTERING: GEMINI_MODELS.FLASH,
   TOPIC_EXTRACTION: GEMINI_MODELS.FLASH,
   WEEKLY_SUMMARY: GEMINI_MODELS.PRO,
-  WEEKLY_DIGEST: GEMINI_MODELS.PRO,
   BEEF_TITLE: GEMINI_MODELS.FLASH,
 } as const;
 
@@ -38,32 +36,3 @@ export const DEFAULT_GENERATION_CONFIG = {
   topK: 40,
   maxOutputTokens: 8192,
 } as const;
-
-// ============================================================================
-// SCHEDULING DEFAULTS
-// ============================================================================
-
-export const SCHEDULE_DEFAULTS = {
-  FEED_FETCH_INTERVAL_HOURS: 4,
-  DAILY_SUMMARY_HOUR: 5, // 5 AM local time
-  WEEKLY_DIGEST_DAY: 'monday' as const,
-  WEEKLY_DIGEST_HOUR: 6, // 6 AM local time
-  TIMEZONE: 'America/New_York',
-} as const;
-
-// ============================================================================
-// CONTENT LIMITS
-// ============================================================================
-
-export const CONTENT_LIMITS = {
-  MAX_DIGEST_ITEMS: 10,
-  MAX_RECENT_DIGESTS_FOR_CONTEXT: 4,
-  MAX_ARTICLES_PER_DAILY_SUMMARY: 50,
-} as const;
-
-// ============================================================================
-// TYPE EXPORTS
-// ============================================================================
-
-export type GeminiModel = (typeof GEMINI_MODELS)[keyof typeof GEMINI_MODELS];
-export type ModelUseCase = keyof typeof DEFAULT_MODELS;
