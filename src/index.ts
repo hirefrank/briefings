@@ -20,7 +20,6 @@ import {
   POST as weeklySummaryPOST,
   GET as weeklySummaryGET,
 } from './server-functions/http/run-weekly-summary';
-import seedDatabase from './server-functions/http/seed-database';
 import testPreviousContext from './server-functions/http/test-previous-context';
 import { requireApiKey, checkApiKey } from './server-functions/http/middleware';
 
@@ -105,12 +104,6 @@ api.get('/run/weekly-summary', checkApiKey, async (c) => {
 
 api.post('/run/weekly-summary', requireApiKey, async (c) => {
   const response = await weeklySummaryPOST(c.req.raw, c.env);
-  return response;
-});
-
-// Database seeding (development)
-api.post('/seed', requireApiKey, async (c) => {
-  const response = await seedDatabase(c.env);
   return response;
 });
 
