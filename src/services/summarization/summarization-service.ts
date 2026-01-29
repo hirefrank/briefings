@@ -9,7 +9,7 @@ import type {
 } from '../../types/structured-summary.js';
 import { SummaryAdapter } from './summary-adapter.js';
 import type { Db } from '../../db.js';
-import type { Article, DailySummary, WeeklySummary, Feed } from '../../db/types.js';
+import type { Article, DailySummary, WeeklySummary, Feed, NewDailySummary, NewWeeklySummary } from '../../db/types.js';
 import { toTimestamp, fromTimestamp } from '../../db/helpers.js';
 import { Logger } from '../../lib/logger.js';
 import { ApiError, DatabaseError, ErrorCode } from '../../lib/errors.js';
@@ -287,7 +287,7 @@ export class SummarizationService implements ISummarizationService {
           articleCount: summary.articleCount || null,
           createdAt: now,
           updatedAt: now,
-        })
+        } satisfies NewDailySummary)
         .returningAll()
         .executeTakeFirstOrThrow();
 
@@ -692,7 +692,7 @@ export class SummarizationService implements ISummarizationService {
           sentAt: summary.sentAt || null,
           createdAt: now,
           updatedAt: now,
-        })
+        } satisfies NewWeeklySummary)
         .returningAll()
         .executeTakeFirstOrThrow();
 
@@ -943,7 +943,7 @@ Return your response as valid JSON matching the required schema. Do not include 
           articleCount: structuredSummary.metadata.articleCount,
           createdAt: now,
           updatedAt: now,
-        })
+        } satisfies NewDailySummary)
         .returningAll()
         .executeTakeFirstOrThrow();
 

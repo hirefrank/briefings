@@ -1,6 +1,6 @@
 import { WorkersRSSParser } from './rss-parser-workers.js';
 import { getDb, type Db } from '../../db.js';
-import type { Feed, Article } from '../../db/types.js';
+import type { Feed, Article, NewArticle } from '../../db/types.js';
 import { toTimestamp, toBool, fromBool } from '../../db/helpers.js';
 import type { IFeedService, ParsedFeedItem, ILogger } from '../interfaces.js';
 import { Logger } from '../../lib/logger.js';
@@ -195,20 +195,7 @@ export class FeedService implements IFeedService {
       }
 
       // Process and extract content from new articles
-      const articlesToCreate: Array<{
-        id: string;
-        feedId: string;
-        title: string;
-        link: string;
-        content?: string;
-        contentSnippet?: string;
-        creator?: string;
-        isoDate?: string;
-        pubDate?: number | null;
-        processed: number;
-        createdAt: number;
-        updatedAt: number;
-      }> = [];
+      const articlesToCreate: NewArticle[] = [];
 
       for (const item of newItems) {
         try {

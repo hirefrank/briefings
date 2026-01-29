@@ -26,4 +26,8 @@ export type {
   Article,
   DailySummary,
   WeeklySummary,
+  NewFeed,
+  NewArticle,
+  NewDailySummary,
+  NewWeeklySummary,
 } from './db/types.js';
