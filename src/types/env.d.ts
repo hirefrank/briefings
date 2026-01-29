@@ -4,7 +4,7 @@ declare global {
     DB: D1Database;
 
     // KV Namespaces
-    APP_CONFIG_KV: KVNamespace;
+    BRIEFINGS_CONFIG_KV: KVNamespace;
     PROMPTS_KV?: KVNamespace;
 
     // R2 Buckets
@@ -28,7 +28,7 @@ declare global {
     R2_ENABLED?: string;
     EMAIL_FROM?: string;
     EMAIL_TO?: string;
-    ENVIRONMENT?: 'development' | 'staging' | 'production';
+    ENVIRONMENT?: "development" | "staging" | "production";
   }
 }
 

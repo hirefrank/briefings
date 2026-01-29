@@ -81,7 +81,7 @@ Helper functions in `src/db/helpers.ts`: `toTimestamp()`, `fromTimestamp()`, `to
 Defined in `src/types/env.d.ts` and configured in `wrangler.toml`:
 
 - **DB**: D1 database (SQLite)
-- **APP_CONFIG_KV**: Feature flags and configuration
+- **BRIEFINGS_CONFIG_KV**: Feature flags and configuration
 - **MARKDOWN_OUTPUT_R2**: Digest history storage
 - **Queues**: `FEED_FETCH_QUEUE`, `DAILY_SUMMARY_INITIATOR_QUEUE`, `DAILY_SUMMARY_PROCESSOR_QUEUE`, `WEEKLY_DIGEST_QUEUE`
 

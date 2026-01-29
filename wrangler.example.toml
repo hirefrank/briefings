@@ -37,10 +37,10 @@ database_name = "briefings-db"
 database_id = "your-d1-database-id"
 
 # KV Namespace for configuration
-# Create with: wrangler kv:namespace create APP_CONFIG_KV
+# Create with: wrangler kv:namespace create BRIEFINGS_CONFIG_KV
 # Then update id below with the ID from the output
 [[kv_namespaces]]
-binding = "APP_CONFIG_KV"
+binding = "BRIEFINGS_CONFIG_KV"
 id = "your-kv-namespace-id"
 
 # R2 Bucket for markdown output and digest history

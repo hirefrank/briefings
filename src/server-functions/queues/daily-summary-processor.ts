@@ -5,29 +5,31 @@ import {
   ApiError,
   DatabaseError,
   ErrorCode,
-} from '../../services/index.js';
-import { getDb, setupDb } from '../../db.js';
-import { toTimestamp } from '../../db/helpers.js';
+} from "../../services/index.js";
+import { getDb, setupDb } from "../../db.js";
+import { toTimestamp } from "../../db/helpers.js";
 import {
   validateQueueMessage,
   DailySummaryProcessorMessageSchema,
   type DailySummaryProcessorMessage,
-} from '../utils/queue-dispatcher.js';
+} from "../utils/queue-dispatcher.js";
 
 /**
  * Daily summary processor queue consumer
  */
 export async function queue(
   batch: MessageBatch<DailySummaryProcessorMessage>,
-  env: Env
+  env: Env,
 ): Promise<void> {
-  const logger = Logger.forService('DailySummaryProcessor');
+  const logger = Logger.forService("DailySummaryProcessor");
 
-  logger.info('Processing daily summary processor batch', {
+  logger.info("Processing daily summary processor batch", {
     messageCount: batch.messages.length,
     envKeys: Object.keys(env),
-    hasAppConfigKV: !!env.APP_CONFIG_KV,
-    appConfigKVType: env.APP_CONFIG_KV ? typeof env.APP_CONFIG_KV : 'undefined',
+    hasAppConfigKV: !!env.BRIEFINGS_CONFIG_KV,
+    appConfigKVType: env.BRIEFINGS_CONFIG_KV
+      ? typeof env.BRIEFINGS_CONFIG_KV
+      : "undefined",
   });
 
   await setupDb(env);
@@ -37,7 +39,7 @@ export async function queue(
       await processDailySummaryProcessorMessage(message, env, logger);
       message.ack();
     } catch (error) {
-      logger.error('Daily summary processor message failed', error as Error, {
+      logger.error("Daily summary processor message failed", error as Error, {
         messageId: message.body.requestId,
         feedName: message.body.feedName,
         error:
@@ -58,14 +60,17 @@ export async function queue(
 async function processDailySummaryProcessorMessage(
   message: Message<DailySummaryProcessorMessage>,
   env: Env,
-  logger: ReturnType<typeof Logger.forService>
+  logger: ReturnType<typeof Logger.forService>,
 ): Promise<void> {
   const startTime = Date.now();
 
   try {
-    const validatedMessage = validateQueueMessage(message.body, DailySummaryProcessorMessageSchema);
+    const validatedMessage = validateQueueMessage(
+      message.body,
+      DailySummaryProcessorMessageSchema,
+    );
 
-    logger.info('Processing daily summary processor message', {
+    logger.info("Processing daily summary processor message", {
       requestId: validatedMessage.requestId,
       date: validatedMessage.date,
       feedName: validatedMessage.feedName,
@@ -81,23 +86,23 @@ async function processDailySummaryProcessorMessage(
       const summaryTs = toTimestamp(summaryDate)!;
 
       const feedInfo = await db
-        .selectFrom('Feed')
+        .selectFrom("Feed")
         .selectAll()
-        .where('name', '=', validatedMessage.feedName)
+        .where("name", "=", validatedMessage.feedName)
         .limit(1)
         .executeTakeFirst();
 
       if (feedInfo) {
         const existingSummary = await db
-          .selectFrom('DailySummary')
+          .selectFrom("DailySummary")
           .selectAll()
-          .where('feedId', '=', feedInfo.id)
-          .where('summaryDate', '=', summaryTs)
+          .where("feedId", "=", feedInfo.id)
+          .where("summaryDate", "=", summaryTs)
           .limit(1)
           .executeTakeFirst();
 
         if (existingSummary) {
-          logger.info('Daily summary already exists, skipping', {
+          logger.info("Daily summary already exists, skipping", {
             requestId: validatedMessage.requestId,
             date: validatedMessage.date,
             feedName: validatedMessage.feedName,
@@ -110,16 +115,16 @@ async function processDailySummaryProcessorMessage(
 
     // Fetch articles by IDs with feed join
     const articlesWithFeeds = await db
-      .selectFrom('Article')
-      .innerJoin('Feed', 'Article.feedId', 'Feed.id')
-      .selectAll('Article')
-      .selectAll('Feed')
-      .where('Article.id', 'in', validatedMessage.articleIds)
-      .orderBy('Article.pubDate', 'desc')
+      .selectFrom("Article")
+      .innerJoin("Feed", "Article.feedId", "Feed.id")
+      .selectAll("Article")
+      .selectAll("Feed")
+      .where("Article.id", "in", validatedMessage.articleIds)
+      .orderBy("Article.pubDate", "desc")
       .execute();
 
     if (articlesWithFeeds.length === 0) {
-      logger.warn('No articles found for daily summary processing', {
+      logger.warn("No articles found for daily summary processing", {
         requestId: validatedMessage.requestId,
         articleIds: validatedMessage.articleIds,
       });
@@ -163,7 +168,7 @@ async function processDailySummaryProcessorMessage(
 
     const summarizationService = new SummarizationService({
       geminiClient,
-      logger: logger.child({ component: 'SummarizationService' }),
+      logger: logger.child({ component: "SummarizationService" }),
     });
 
     // Generate daily summary
@@ -173,7 +178,7 @@ async function processDailySummaryProcessorMessage(
       validatedMessage.feedName,
       summaryDate,
       env,
-      db
+      db,
     );
 
     // Get feedId from the first article
@@ -186,17 +191,17 @@ async function processDailySummaryProcessorMessage(
         summaryDate: toTimestamp(summaryDate)!,
         summaryContent,
         structuredContent: null,
-        schemaVersion: '1.0',
+        schemaVersion: "1.0",
         sentiment: null,
         topicsList: null,
         entityList: null,
         articleCount: articlesWithFeeds.length,
       },
       validatedMessage.articleIds,
-      db
+      db,
     );
 
-    logger.info('Daily summary generated and saved', {
+    logger.info("Daily summary generated and saved", {
       requestId: validatedMessage.requestId,
       summaryId: savedSummary.id,
       feedName: validatedMessage.feedName,
@@ -207,7 +212,7 @@ async function processDailySummaryProcessorMessage(
 
     const duration = Date.now() - startTime;
 
-    logger.info('Daily summary processing completed', {
+    logger.info("Daily summary processing completed", {
       requestId: validatedMessage.requestId,
       summaryId: savedSummary.id,
       feedName: validatedMessage.feedName,
@@ -218,8 +223,11 @@ async function processDailySummaryProcessorMessage(
     const duration = Date.now() - startTime;
     const messageData = message.body;
 
-    if (error instanceof DatabaseError && error.code === ErrorCode.DUPLICATE_ENTRY) {
-      logger.info('Duplicate daily summary found, skipping', {
+    if (
+      error instanceof DatabaseError &&
+      error.code === ErrorCode.DUPLICATE_ENTRY
+    ) {
+      logger.info("Duplicate daily summary found, skipping", {
         requestId: messageData.requestId,
         date: messageData.date,
         feedName: messageData.feedName,
@@ -228,7 +236,7 @@ async function processDailySummaryProcessorMessage(
       return;
     }
 
-    logger.error('Daily summary processing failed', error as Error, {
+    logger.error("Daily summary processing failed", error as Error, {
       requestId: messageData.requestId,
       date: messageData.date,
       feedName: messageData.feedName,
@@ -246,7 +254,12 @@ async function processDailySummaryProcessorMessage(
 }
 
 function isRetryableError(error: unknown): boolean {
-  if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError') {
+  if (
+    error &&
+    typeof error === "object" &&
+    "name" in error &&
+    error.name === "ValidationError"
+  ) {
     return false;
   }
 
@@ -261,7 +274,7 @@ function isRetryableError(error: unknown): boolean {
     if (error.code === ErrorCode.DUPLICATE_ENTRY) {
       return false;
     }
-    if (error.context?.operation === 'constraint_violation') {
+    if (error.context?.operation === "constraint_violation") {
       return false;
     }
     return true;
@@ -269,9 +282,9 @@ function isRetryableError(error: unknown): boolean {
 
   if (
     error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    error.code === 'SUMMARIZATION_ERROR'
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "SUMMARIZATION_ERROR"
   ) {
     return true;
   }
