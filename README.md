@@ -53,7 +53,7 @@
 │                                                                              │ │
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
 │  │                         Cloudflare Bindings                             │ │
-│  │  • DB: D1 Database           • KV: APP_CONFIG_KV                        │ │
+│  │  • DB: D1 Database           • KV: BRIEFINGS_CONFIG_KV                        │ │
 │  │  • R2: MARKDOWN_OUTPUT_R2    • Queues: 4 queue consumers                │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                              │
@@ -121,18 +121,19 @@ Configured in `src/lib/constants.ts`:
 
 #### D1 Database (Kysely ORM)
 
-Schema in `src/db/schema.ts`:
+Schema defined in `src/db/types.ts`:
 
 - `Feed` - RSS feed sources with validation state
 - `Article` - Fetched articles with `processed` flag
 - `DailySummary` - AI-generated daily summaries linked to feeds
 - `WeeklySummary` - Weekly digest records with `sentAt` tracking
-- `feedGroups` - Optional grouping of feeds
-- `promptTemplates` - Customizable AI prompt storage
+- `ArticleSummaryRelation` - Links articles to daily summaries
+- `DailyWeeklySummaryRelation` - Links daily summaries to weekly summaries
+- `PromptTemplate` - Customizable AI prompt storage
 
 #### KV Namespace
 
-`APP_CONFIG_KV` for feature flags and configuration.
+`BRIEFINGS_CONFIG_KV` for feature flags and configuration.
 
 #### R2 Bucket
 
@@ -143,7 +144,7 @@ Schema in `src/db/schema.ts`:
 Defined in `src/types/env.d.ts`, configured in `wrangler.toml`:
 
 - **DB**: D1 database
-- **APP_CONFIG_KV**: KV namespace  
+- **BRIEFINGS_CONFIG_KV**: KV namespace
 - **MARKDOWN_OUTPUT_R2**: R2 bucket
 - **Queues**: `FEED_FETCH_QUEUE`, `DAILY_SUMMARY_INITIATOR_QUEUE`, `DAILY_SUMMARY_PROCESSOR_QUEUE`, `WEEKLY_DIGEST_QUEUE`
 
@@ -211,15 +212,15 @@ cp .env.example .env
 
 ```bash
 # Create D1 database
-wrangler d1 create briefings-db
+npx wrangler d1 create briefings-db
 # Copy the database_id to wrangler.toml
 
 # Create KV namespace
-wrangler kv:namespace create APP_CONFIG_KV
+npx wrangler kv namespace create BRIEFINGS_CONFIG_KV
 # Copy the id to wrangler.toml
 
 # Create R2 bucket
-wrangler r2 bucket create briefings-markdown-output
+npx wrangler r2 bucket create briefings-md-output
 ```
 
 #### 2. Update wrangler.toml
@@ -236,9 +237,6 @@ Edit `.env` with your values:
 ```bash
 # Required
 GEMINI_API_KEY=your-gemini-api-key
-CLOUDFLARE_ACCOUNT_ID=your-account-id
-CLOUDFLARE_DATABASE_ID=your-database-id
-CLOUDFLARE_D1_TOKEN=your-api-token
 
 # Optional (for email delivery)
 # RESEND_API_KEY=re_your_key
@@ -250,7 +248,7 @@ CLOUDFLARE_D1_TOKEN=your-api-token
 
 ```bash
 # Set Gemini API key as secret
-echo "your-gemini-api-key" | wrangler secret put GEMINI_API_KEY
+echo "your-gemini-api-key" | npx wrangler secret put GEMINI_API_KEY
 
 # Optional: Set Resend API key
 # echo "your-resend-key" | wrangler secret put RESEND_API_KEY
@@ -388,8 +386,11 @@ Core tables:
 - `Article` - Fetched articles
 - `DailySummary` - AI-generated daily summaries
 - `WeeklySummary` - AI-generated weekly digests
+- `ArticleSummaryRelation` - Many-to-many: articles ↔ daily summaries
+- `DailyWeeklySummaryRelation` - Many-to-many: daily ↔ weekly summaries
+- `PromptTemplate` - AI prompt templates
 
-See `src/db/schema.ts` for full schema.
+See `src/db/types.ts` for TypeScript types and `migrations/` for SQL schema.
 
 ## Prompts
 
