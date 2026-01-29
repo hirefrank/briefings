@@ -2,7 +2,8 @@ import { getDb, setupDb } from '../db.js';
 import type { NewFeed } from '../db/types.js';
 import { Logger } from '../lib/logger.js';
 import { parseFeedsConfig } from '../lib/config.js';
-import feedsYaml from '../../config/feeds.yaml';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 export async function seedDatabase(env: Env): Promise<void> {
   const logger = Logger.forService('DatabaseSeeder');
@@ -12,6 +13,9 @@ export async function seedDatabase(env: Env): Promise<void> {
   await setupDb(env);
   const db = getDb(env);
 
+  // Read feeds.yaml file
+  const feedsPath = resolve(process.cwd(), 'config/feeds.yaml');
+  const feedsYaml = readFileSync(feedsPath, 'utf-8');
   const feedEntries = parseFeedsConfig(feedsYaml);
   const now = Date.now();
 

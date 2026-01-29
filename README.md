@@ -260,6 +260,9 @@ echo "your-gemini-api-key" | npx wrangler secret put GEMINI_API_KEY
 # Apply migrations to remote D1
 pnpm run db:migrate:remote
 
+# Copy example feeds config (edit with your own feeds)
+cp config/feeds.example.yaml config/feeds.yaml
+
 # Seed with sample feeds
 pnpm run db:seed
 ```
