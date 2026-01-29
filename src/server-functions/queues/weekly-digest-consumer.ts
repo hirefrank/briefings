@@ -129,21 +129,20 @@ async function processWeeklyDigest(
     content: row.summaryContent,
   }));
 
-  logger.info('Generating weekly recap');
+  logger.info('Generating weekly recap (single-pass with metadata)');
 
-  const recapContent = await summarizationService.generateWeeklyRecap(
+  // STEP 3: Generate (One call, high intelligence with thinkingLevel HIGH)
+  const rawContent = await summarizationService.generateWeeklyRecap(
     summariesForRecap as any,
     { start: weekStart, end: weekEnd },
     env
   );
 
-  // STEP 4: Topics and title
-  logger.info('Extracting topics and generating title');
+  // STEP 4: Parse metadata (Zero latency)
+  logger.info('Parsing digest metadata from generated content');
 
-  const topics = await summarizationService.extractTopics(recapContent, env);
-  const title = await summarizationService.generateTitle(recapContent, topics, env);
-
-  const sections = summarizationService.parseRecapSections(recapContent);
+  const { title, topics, cleanContent } = summarizationService.parseDigestMetadata(rawContent);
+  const sections = summarizationService.parseRecapSections(cleanContent);
 
   // STEP 5: Save to database
   logger.info('Saving weekly summary to database');
@@ -199,7 +198,7 @@ async function processWeeklyDigest(
       const emailResult = await emailService.sendWeeklyDigest({
         to: recipients,
         title,
-        content: recapContent,
+        content: cleanContent,
         weekStart: format(weekStart, 'yyyy-MM-dd'),
         weekEnd: format(weekEnd, 'yyyy-MM-dd'),
       });

@@ -114,8 +114,8 @@ All routes under `/api` prefix. Authentication via `X-API-Key` header.
 
 Configured in `src/lib/constants.ts`:
 
-- **Daily summaries**: `gemini-2.5-flash` (fast, efficient)
-- **Weekly digests**: `gemini-2.5-pro` (comprehensive analysis)
+- **Daily summaries**: `gemini-3-flash-preview` (fast, efficient)
+- **Weekly digests**: `gemini-3-pro-preview` (comprehensive analysis)
 
 ### Storage
 
@@ -426,10 +426,10 @@ Weekly digests will automatically be sent when generated. The `sentAt` timestamp
 
 Briefings uses Google Gemini with model selection based on task complexity:
 
-- **Daily Summaries**: `gemini-2.5-flash` (fast, efficient for short summaries)
-- **Topic Extraction**: `gemini-2.5-flash` (quick analysis)
-- **Title Generation**: `gemini-2.5-flash` (creative titles)
-- **Weekly Digest**: `gemini-2.5-pro` (comprehensive analysis, better synthesis)
+- **Daily Summaries**: `gemini-3-flash-preview` (fast, efficient for short summaries)
+- **Topic Extraction**: `gemini-3-flash-preview` (quick analysis)
+- **Title Generation**: `gemini-3-flash-preview` (creative titles)
+- **Weekly Digest**: `gemini-3-pro-preview` (comprehensive analysis, better synthesis)
 
 Models are configured in `src/lib/constants.ts`.
 

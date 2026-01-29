@@ -21,9 +21,7 @@ export const GEMINI_MODELS = {
 
 export const DEFAULT_MODELS = {
   DAILY_SUMMARY: GEMINI_MODELS.FLASH,
-  TOPIC_EXTRACTION: GEMINI_MODELS.FLASH,
   WEEKLY_SUMMARY: GEMINI_MODELS.PRO,
-  BEEF_TITLE: GEMINI_MODELS.FLASH,
 } as const;
 
 // ============================================================================

@@ -203,14 +203,9 @@ export async function generateWeeklySummaryTask(
       env
     );
 
-    // Parse sections
-    const sections = summarizationService.parseRecapSections(recapContent);
-
-    // Extract topics
-    const topics = await summarizationService.extractTopics(recapContent, env);
-
-    // Generate title
-    const title = await summarizationService.generateTitle(recapContent, topics, env);
+    // Parse metadata and sections (single-pass workflow)
+    const { title, topics, cleanContent } = summarizationService.parseDigestMetadata(recapContent);
+    const sections = summarizationService.parseRecapSections(cleanContent);
 
     if (skipDbSave) {
       logger.info('Skipping database save as requested');

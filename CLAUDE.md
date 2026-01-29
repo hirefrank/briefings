@@ -87,8 +87,8 @@ Defined in `src/types/env.d.ts` and configured in `wrangler.toml`:
 ### AI Model Selection
 
 Models configured in `src/lib/constants.ts`:
-- Daily summaries: `gemini-2.0-flash-exp` (fast)
-- Weekly digests: `gemini-1.5-pro` (comprehensive)
+- Daily summaries: `gemini-3-flash-preview` (fast)
+- Weekly digests: `gemini-3-pro-preview` (comprehensive)
 
 Prompts defined in `src/lib/prompts.ts`.
 

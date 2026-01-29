@@ -62,9 +62,7 @@ export interface ISummarizationService {
     env: Env
   ): Promise<string>;
 
-  extractTopics(content: string, env: Env, promptName?: string): Promise<string[]>;
-
-  generateTitle(content: string, topics: string[], env: Env, promptName?: string): Promise<string>;
+  parseDigestMetadata(content: string): { title: string; topics: string[]; cleanContent: string };
 
   parseRecapSections(content: string): {
     belowTheFold?: string;

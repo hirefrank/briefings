@@ -47,8 +47,6 @@ const PromptEntrySchema = z.object({
 
 const PromptsConfigSchema = z.object({
   'daily-summary': PromptEntrySchema,
-  'topic-extraction': PromptEntrySchema,
-  'title-generator': PromptEntrySchema,
   'weekly-digest': PromptEntrySchema,
 });
 
@@ -59,8 +57,6 @@ export function parsePromptsConfig(yamlContent: string): Record<PromptType, stri
   const config = PromptsConfigSchema.parse(raw);
   return {
     'daily-summary': config['daily-summary'].template,
-    'topic-extraction': config['topic-extraction'].template,
-    'title-generator': config['title-generator'].template,
     'weekly-digest': config['weekly-digest'].template,
   };
 }

@@ -198,7 +198,8 @@ export class SummarizationService implements ISummarizationService {
       try {
         const response = await this.geminiClient.generateContent(prompt, {
           model: DEFAULT_MODELS.DAILY_SUMMARY,
-          temperature: 0.7,
+          temperature: 1.0,
+          thinkingLevel: 'LOW',
           maxOutputTokens: 16384,
         });
         summary = this.formatMarkdown(response.text);
@@ -496,7 +497,8 @@ export class SummarizationService implements ISummarizationService {
         response = await this.geminiClient.generateWithRetry(truncatedPrompt, {
           config: {
             model: DEFAULT_MODELS.WEEKLY_SUMMARY,
-            temperature: 0.8,
+            temperature: 1.0,
+            thinkingLevel: 'HIGH',
             maxOutputTokens: 65536,
           },
           maxRetries: 3,
@@ -517,7 +519,8 @@ export class SummarizationService implements ISummarizationService {
         response = await this.geminiClient.generateWithRetry(prompt, {
           config: {
             model: DEFAULT_MODELS.WEEKLY_SUMMARY,
-            temperature: 0.8,
+            temperature: 1.0,
+            thinkingLevel: 'HIGH',
             maxOutputTokens: 65536,
           },
           maxRetries: 3,
@@ -552,91 +555,43 @@ export class SummarizationService implements ISummarizationService {
   }
 
   /**
-   * Extract topics from content using AI
+   * Parse digest metadata from the start of the content
+   * Expects format:
+   *   Title: 🥩 Event 1, Event 2, Event 3
+   *   Topics: Topic 1, Topic 2, Topic 3, Topic 4
+   *   Subject: Thematic Subhead
+   *   [blank line]
+   *   [rest of content]
    */
-  async extractTopics(content: string, env: Env, promptName?: string): Promise<string[]> {
-    try {
-      this.logger.debug('Extracting topics from content', {
-        contentLength: content.length,
-        promptName: promptName || 'topic-extraction',
-      });
+  parseDigestMetadata(content: string): { title: string; topics: string[]; cleanContent: string } {
+    const lines = content.split('\n');
+    let title = 'Weekly Briefing';
+    let topics: string[] = [];
+    let endIndex = 0;
 
-      const templateContext = {
-        weeklyRecap: content.substring(0, 5000),
-      };
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('Title:')) {
+        title = line.replace('Title:', '').trim();
+      } else if (line.startsWith('Topics:')) {
+        topics = line.replace('Topics:', '').split(',').map(t => t.trim()).filter(t => t);
+      } else if (line.startsWith('Subject:')) {
+        // Subject line is optional metadata, don't parse it separately
+      }
 
-      const prompt = renderPrompt(getPrompt('topic-extraction'), templateContext);
-
-      const topics = await this.geminiClient.generateJSON<{ topics: string[] }>(prompt, {
-        model: DEFAULT_MODELS.TOPIC_EXTRACTION,
-        temperature: 0.5,
-        maxOutputTokens: 4096,
-      });
-
-      const extractedTopics = topics.topics || [];
-
-      this.logger.info('Topics extracted successfully', {
-        topicCount: extractedTopics.length,
-      });
-
-      return extractedTopics;
-    } catch (error) {
-      this.logger.error('Failed to extract topics', error as Error);
-      return [];
+      if (line === '' && i > 0) {
+        endIndex = i + 1;
+        break;
+      }
     }
-  }
 
-  /**
-   * Generate a title for the weekly recap
-   */
-  async generateTitle(
-    content: string,
-    topics: string[],
-    env: Env,
-    promptName?: string
-  ): Promise<string> {
-    try {
-      this.logger.debug('Generating title for weekly recap', {
-        topicCount: topics.length,
-        promptName: promptName || 'beef-title-generator',
-      });
+    this.logger.info('Parsed digest metadata', {
+      title,
+      topicCount: topics.length,
+      contentLength: content.length,
+    });
 
-      const templateContext = {
-        weeklyRecap: content,
-        topics,
-      };
-
-      const prompt = renderPrompt(getPrompt('title-generator'), templateContext);
-
-      const response = await this.geminiClient.generateWithRetry(prompt, {
-        config: {
-          model: DEFAULT_MODELS.BEEF_TITLE,
-          temperature: 0.9,
-          maxOutputTokens: 4096,
-        },
-        maxRetries: 3,
-        onRetry: (attempt, error) => {
-          this.logger.warn(`Retrying title generation (attempt ${attempt})`, {
-            error: error.message,
-          });
-        },
-      });
-
-      const title = response.text.trim().replace(/^#\s*/, '');
-
-      this.logger.info('Title generated successfully', {
-        titleLength: title.length,
-      });
-
-      return title;
-    } catch (error) {
-      this.logger.error('Failed to generate title', error as Error, {
-        errorMessage: error instanceof Error ? error.message : String(error),
-        topicCount: topics.length,
-        contentLength: content.length,
-      });
-      return 'Weekly Recap';
-    }
+    return { title, topics, cleanContent: lines.slice(endIndex).join('\n').trim() };
   }
 
   /**
