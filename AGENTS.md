@@ -27,6 +27,11 @@ pnpm typecheck              # TypeScript type checking (tsc --noEmit)
 
 # Deployment
 pnpm deploy                 # Deploy to Cloudflare Workers
+# First-time setup: Create queues before deploying
+# wrangler queues create briefings-feed-fetch
+# wrangler queues create briefings-daily-summary-initiator
+# wrangler queues create briefings-daily-summary-processor
+# wrangler queues create briefings-weekly-digest
 ```
 
 ## Architecture
