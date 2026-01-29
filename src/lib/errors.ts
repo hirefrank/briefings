@@ -9,7 +9,6 @@
 
 export enum ErrorCode {
   // General errors
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
 
@@ -23,7 +22,6 @@ export enum ErrorCode {
   // Queue errors
   QUEUE_ERROR = 'QUEUE_ERROR',
   QUEUE_MESSAGE_INVALID = 'QUEUE_MESSAGE_INVALID',
-  QUEUE_SEND_FAILED = 'QUEUE_SEND_FAILED',
 
   // Database errors
   DATABASE_ERROR = 'DATABASE_ERROR',
@@ -35,11 +33,6 @@ export enum ErrorCode {
   FEED_FETCH_ERROR = 'FEED_FETCH_ERROR',
   FEED_PARSE_ERROR = 'FEED_PARSE_ERROR',
   SUMMARIZATION_ERROR = 'SUMMARIZATION_ERROR',
-  PUBLISH_ERROR = 'PUBLISH_ERROR',
-
-  // Storage errors
-  R2_ERROR = 'R2_ERROR',
-  STORAGE_ERROR = 'STORAGE_ERROR',
 }
 
 // ============================================================================
@@ -112,12 +105,6 @@ export class ValidationError extends BaseError {
   }
 }
 
-export class ConfigurationError extends BaseError {
-  constructor(message: string, context?: Partial<ErrorContext>) {
-    super(message, ErrorCode.CONFIGURATION_ERROR, 500, false, context);
-  }
-}
-
 export class ApiError extends BaseError {
   constructor(
     message: string,
@@ -141,16 +128,6 @@ export class RateLimitError extends ApiError {
 export class TimeoutError extends ApiError {
   constructor(message: string, context?: Partial<ErrorContext>) {
     super(message, ErrorCode.API_TIMEOUT, 408, context);
-  }
-}
-
-export class QueueError extends BaseError {
-  constructor(
-    message: string,
-    code: ErrorCode = ErrorCode.QUEUE_ERROR,
-    context?: Partial<ErrorContext>
-  ) {
-    super(message, code, 500, true, context);
   }
 }
 
@@ -178,103 +155,4 @@ export class SummarizationError extends BaseError {
   constructor(message: string, context?: Partial<ErrorContext>) {
     super(message, ErrorCode.SUMMARIZATION_ERROR, 500, true, context);
   }
-}
-
-export class PublishError extends BaseError {
-  constructor(message: string, context?: Partial<ErrorContext>) {
-    super(message, ErrorCode.PUBLISH_ERROR, 500, true, context);
-  }
-}
-
-// ============================================================================
-// TYPE GUARDS
-// ============================================================================
-
-export function isBaseError(error: unknown): error is BaseError {
-  return error instanceof BaseError;
-}
-
-export function isApiError(error: unknown): error is ApiError {
-  return error instanceof ApiError;
-}
-
-export function isRateLimitError(error: unknown): error is RateLimitError {
-  return error instanceof RateLimitError;
-}
-
-// ============================================================================
-// ERROR CLASSIFICATION
-// ============================================================================
-
-export enum ErrorClassification {
-  TRANSIENT = 'TRANSIENT',
-  PERMANENT = 'PERMANENT',
-  RATE_LIMIT = 'RATE_LIMIT',
-}
-
-export function classifyError(error: unknown): ErrorClassification {
-  if (isRateLimitError(error)) {
-    return ErrorClassification.RATE_LIMIT;
-  }
-
-  if (isBaseError(error)) {
-    const permanentCodes = [
-      ErrorCode.VALIDATION_ERROR,
-      ErrorCode.CONFIGURATION_ERROR,
-      ErrorCode.API_AUTHENTICATION,
-      ErrorCode.API_NOT_FOUND,
-      ErrorCode.QUEUE_MESSAGE_INVALID,
-      ErrorCode.DATABASE_CONSTRAINT,
-      ErrorCode.DUPLICATE_ENTRY,
-    ];
-
-    if (permanentCodes.includes(error.code)) {
-      return ErrorClassification.PERMANENT;
-    }
-
-    if (error.statusCode >= 500 && error.statusCode < 600) {
-      return ErrorClassification.TRANSIENT;
-    }
-  }
-
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    const transientPatterns = [
-      'timeout',
-      'econnrefused',
-      'enotfound',
-      'econnreset',
-      'network',
-      'fetch failed',
-    ];
-
-    if (transientPatterns.some((pattern) => message.includes(pattern))) {
-      return ErrorClassification.TRANSIENT;
-    }
-  }
-
-  return ErrorClassification.PERMANENT;
-}
-
-// ============================================================================
-// ERROR SERIALIZATION
-// ============================================================================
-
-export function serializeError(error: unknown): Record<string, unknown> {
-  if (isBaseError(error)) {
-    return error.toJSON();
-  }
-
-  if (error instanceof Error) {
-    return {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    };
-  }
-
-  return {
-    error: String(error),
-    type: typeof error,
-  };
 }
