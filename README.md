@@ -258,13 +258,14 @@ echo "your-gemini-api-key" | npx wrangler secret put GEMINI_API_KEY
 
 ```bash
 # Apply migrations to remote D1
-pnpm run db:migrate:remote
+pnpm run db:migrate
 
-# Copy example feeds config (edit with your own feeds)
+# Copy example configs (edit with your own settings)
 cp config/feeds.example.yaml config/feeds.yaml
+cp config/prompts.example.yaml config/prompts.yaml
 
-# Seed with sample feeds
-pnpm run db:seed
+# Sync feeds from YAML to D1 (bidirectional sync)
+pnpm sync:feeds
 ```
 
 ### Deploy
@@ -281,10 +282,11 @@ curl https://your-worker.workers.dev/health
 
 ### Adding RSS Feeds
 
-Edit `src/scripts/seed.ts` to add your feeds, then run:
+Edit `config/feeds.yaml` to add your feeds, then sync to D1:
 
 ```bash
-pnpm run db:seed
+# Edit config/feeds.yaml with your feeds
+pnpm sync:feeds
 ```
 
 Or add feeds directly to the D1 database using the Cloudflare dashboard or CLI:
@@ -341,10 +343,10 @@ Database is hosted on Cloudflare D1. Use Wrangler to interact with it:
 
 ```bash
 # Apply migrations to remote D1
-pnpm run db:migrate:remote
+pnpm run db:migrate
 
-# Seed database with sample feeds
-pnpm run db:seed
+# Sync feeds from YAML to database
+pnpm sync:feeds
 
 # View database in browser (requires browser login)
 wrangler d1 execute DB --remote --command="SELECT * FROM Feed LIMIT 10"
@@ -397,14 +399,14 @@ See `src/db/types.ts` for TypeScript types and `migrations/` for SQL schema.
 
 ## Prompts
 
-AI prompts are defined inline in `src/lib/prompts.ts`:
+AI prompts are loaded from `config/prompts.yaml` at build time:
 
-- `DAILY_SUMMARY_PROMPT` - Template for daily article summaries
-- `WEEKLY_DIGEST_PROMPT` - Template for weekly newsletter
-- `TOPIC_EXTRACTION_PROMPT` - Extract topics from content
-- `TITLE_GENERATOR_PROMPT` - Generate newsletter titles
+- `daily-summary` - Template for daily article summaries
+- `weekly-digest` - Template for weekly newsletter
+- `topic-extraction` - Extract topics from content
+- `title-generator` - Generate newsletter titles
 
-Customize these prompts to match your newsletter style.
+Customize these prompts in `config/prompts.yaml` to match your newsletter style. Templates use Mustache-style `{{variable}}` substitution. See `config/prompts.example.yaml` for the full template format.
 
 ## Monitoring
 
@@ -446,7 +448,7 @@ If queues aren't processing:
 wrangler d1 migrations list DB
 
 # Force re-apply migrations
-pnpm run db:migrate:remote
+pnpm run db:migrate
 ```
 
 ## Project Structure

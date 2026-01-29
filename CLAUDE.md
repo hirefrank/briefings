@@ -6,14 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Development
-pnpm dev                    # Start local dev server with wrangler
+pnpm dev                    # Start dev server (connects to remote resources)
 pnpm tail                   # View real-time production logs
 
 # Database
 pnpm db:migrate:local       # Apply migrations to local D1
 pnpm db:migrate:remote      # Apply migrations to remote D1
-pnpm db:seed                # Seed database with sample feeds
-pnpm sync:feeds             # Sync feeds from config/feeds.yaml to D1
+pnpm sync:feeds             # Sync feeds from config/feeds.yaml to D1 (bidirectional)
 
 # Testing & Types
 pnpm test                   # Run tests with vitest
