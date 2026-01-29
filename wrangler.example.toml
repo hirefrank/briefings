@@ -27,6 +27,7 @@ TZ = "America/New_York"
 # Email settings (optional - configure via secrets)
 # EMAIL_FROM = "briefings@example.com"
 # EMAIL_TO = "you@example.com"
+# EMAIL_SUBJECT_PREFIX = "[Briefings]"  # Prefix for email subjects (e.g., "[Briefings] Your Title Here")
 
 # D1 Database
 # Create with: wrangler d1 create briefings-db

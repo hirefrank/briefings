@@ -99,6 +99,7 @@ async function processWeeklyDigest(
   logger.info('Found daily summaries', { count: dailySummaryRows.length });
 
   // STEP 2: Fetch historical context from R2
+  let previousContext: string | undefined;
   try {
     const r2Storage = createR2Storage(env.briefings_md_output);
     const context = await r2Storage.buildDigestContext(4);
@@ -109,6 +110,7 @@ async function processWeeklyDigest(
         recentTitles: context.recentTitles.length,
         recentTopics: context.recentTopics.length,
       });
+      previousContext = context.contextString;
     }
   } catch (error) {
     logger.warn('Failed to fetch R2 context, proceeding without', {
@@ -135,7 +137,8 @@ async function processWeeklyDigest(
   const rawContent = await summarizationService.generateWeeklyRecap(
     summariesForRecap as any,
     { start: weekStart, end: weekEnd },
-    env
+    env,
+    previousContext
   );
 
   // STEP 4: Parse metadata (Zero latency)
@@ -201,6 +204,7 @@ async function processWeeklyDigest(
         content: cleanContent,
         weekStart: format(weekStart, 'yyyy-MM-dd'),
         weekEnd: format(weekEnd, 'yyyy-MM-dd'),
+        subjectPrefix: env.EMAIL_SUBJECT_PREFIX,
       });
 
       if (emailResult.success) {

@@ -3,6 +3,7 @@ import type { Db } from '../db.js';
 import type { DailySummary } from '../db/types.js';
 import { toTimestamp, fromTimestamp } from '../db/helpers.js';
 import { format } from 'date-fns';
+import { createR2Storage } from '../lib/r2.js';
 
 /**
  * Task: Fetch all active feeds
@@ -196,11 +197,29 @@ export async function generateWeeklySummaryTask(
       return null;
     }
 
+    // Fetch historical context from R2 for continuity
+    let previousContext: string | undefined;
+    try {
+      const r2Storage = createR2Storage(env.briefings_md_output);
+      const context = await r2Storage.buildDigestContext(4);
+      if (context.digestCount > 0) {
+        previousContext = context.contextString;
+        logger.info('Retrieved historical context from R2', {
+          digestCount: context.digestCount,
+        });
+      }
+    } catch (error) {
+      logger.warn('Failed to fetch R2 context, proceeding without', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     // Generate weekly recap
     const recapContent = await summarizationService.generateWeeklyRecap(
       dailySummariesList,
       { start: weekStartDate, end: endDate },
-      env
+      env,
+      previousContext
     );
 
     // Parse metadata and sections (single-pass workflow)

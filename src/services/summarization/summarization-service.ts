@@ -189,10 +189,14 @@ export class SummarizationService implements ISummarizationService {
           };
         }),
         articleCount: articlesToSummarize.length,
-        relatedContext: relatedContext.join('\n\n'),
       };
 
-      const prompt = renderPrompt(getPrompt('daily-summary'), templateContext);
+      let prompt = renderPrompt(getPrompt('daily-summary'), templateContext);
+
+      // Hardcode context injection - always append if available
+      if (relatedContext.length > 0) {
+        prompt += `\n\n---\n\nRelated Context from Recent Summaries (for continuity):\n\n${relatedContext.join('\n\n')}`;
+      }
 
       let summary: string;
       try {
@@ -420,7 +424,7 @@ export class SummarizationService implements ISummarizationService {
     summaries: DailySummary[],
     dateRange: { start: Date; end: Date },
     env: Env,
-    promptName = 'weekly-beef-recap'
+    previousContext?: string
   ): Promise<string> {
     try {
       this.logger.info('Generating weekly recap', {
@@ -473,7 +477,12 @@ export class SummarizationService implements ISummarizationService {
         sourceCount: sources.size || summaries.length,
       };
 
-      const prompt = renderPrompt(getPrompt('weekly-digest'), templateContext);
+      let prompt = renderPrompt(getPrompt('weekly-digest'), templateContext);
+
+      // Hardcode context injection - always append if available
+      if (previousContext && previousContext.length > 0) {
+        prompt += `\n\n---\n\nPrevious Weeks' Context (avoid repetition, find fresh angles):\n\n${previousContext}`;
+      }
 
       const promptLength = prompt.length;
       const MAX_TOTAL_PROMPT_LENGTH = 200000;

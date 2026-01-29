@@ -59,7 +59,8 @@ export interface ISummarizationService {
   generateWeeklyRecap(
     summaries: DailySummary[],
     dateRange: { start: Date; end: Date },
-    env: Env
+    env: Env,
+    previousContext?: string
   ): Promise<string>;
 
   parseDigestMetadata(content: string): { title: string; topics: string[]; cleanContent: string };

@@ -28,6 +28,7 @@ declare global {
     R2_ENABLED?: string;
     EMAIL_FROM?: string;
     EMAIL_TO?: string;
+    EMAIL_SUBJECT_PREFIX?: string;
     ENVIRONMENT?: "development" | "staging" | "production";
   }
 }

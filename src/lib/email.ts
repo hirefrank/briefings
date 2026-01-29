@@ -119,6 +119,7 @@ export class ResendEmailService {
     content: string;
     weekStart: string;
     weekEnd: string;
+    subjectPrefix?: string;
   }): Promise<EmailResult> {
     const html = this.formatWeeklyDigest({
       title: options.title,
@@ -127,9 +128,13 @@ export class ResendEmailService {
       weekEnd: options.weekEnd,
     });
 
+    // Build subject with optional prefix (defaults to [Briefings] if not set)
+    const prefix = options.subjectPrefix ?? '[Briefings]';
+    const subject = prefix ? `${prefix} ${options.title}` : options.title;
+
     return this.sendEmail({
       to: options.to,
-      subject: options.title,
+      subject,
       html,
       tags: [
         { name: 'type', value: 'weekly-digest' },

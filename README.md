@@ -415,10 +415,22 @@ To enable weekly digest emails via Resend:
 # In wrangler.toml [vars] section
 EMAIL_FROM = "briefings@yourdomain.com"
 EMAIL_TO = "you@example.com,team@example.com"  # comma-separated
+EMAIL_SUBJECT_PREFIX = "[Briefings]"  # Optional - prefix for email subjects
 
 # As Cloudflare secret
 echo "your-resend-api-key" | wrangler secret put RESEND_API_KEY
 ```
+
+**Email Subject Customization:**
+
+The `EMAIL_SUBJECT_PREFIX` variable lets you brand your weekly digest emails:
+
+| Setting | Result | Use Case |
+|---------|--------|----------|
+| `[Briefings]` (default) | `[Briefings] 🥩 AI Red Flags, Cloud Wars...` | Professional branding |
+| `🥩 The Beef` | `🥩 The Beef AI Red Flags, Cloud Wars...` | Casual/fun branding |
+| `[Your Company]` | `[Your Company] 🥩 AI Red Flags...` | Corporate deployment |
+| (empty string) | `🥩 AI Red Flags, Cloud Wars...` | No prefix |
 
 Weekly digests will automatically be sent when generated. The `sentAt` timestamp is tracked in the database.
 
