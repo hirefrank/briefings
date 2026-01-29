@@ -535,6 +535,15 @@ Build your own AI-curated reading list:
 - **Frequency**: Adjust cron schedules for daily vs. weekly digest
 - **Email**: Configure Resend for automated delivery to your inbox
 
+## Future Ideas
+
+A few directions that could extend Briefings beyond RSS but never made it off the backlog:
+
+- **Non-RSS web content** -- Many valuable sources don't publish feeds. A scraping or extraction layer (using headless browsers or readability parsers) could ingest arbitrary web pages, newsletters delivered to a catch-all inbox, or content behind paywalls with authenticated sessions.
+- **SaaS and productivity tool integrations** -- A lot of signal lives inside tools people already use: Google Docs, Notion databases, Slack channels, Linear/Jira updates, Confluence wikis, and similar. Connectors for these sources would let Briefings summarize internal knowledge alongside public content, turning it into a true "everything digest" rather than an RSS-only tool.
+
+Both would benefit from a pluggable source adapter pattern so new integrations could be added without touching the core summarization pipeline.
+
 ## Contributing
 
 This is an open-source project. Contributions welcome!
