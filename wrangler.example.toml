@@ -17,6 +17,7 @@ enabled = true
 [[rules]]
 type = "Text"
 globs = ["**/*.yaml"]
+fallthrough = true
 
 # Environment variables
 [vars]
@@ -95,4 +96,4 @@ max_batch_timeout = 60
 [[queues.consumers]]
 queue = "briefings-weekly-digest"
 max_batch_size = 1
-max_batch_timeout = 120
+max_batch_timeout = 60
