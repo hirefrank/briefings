@@ -25,13 +25,18 @@ pnpm vitest run -t "should generate daily summary"
 # Type Checking & Linting
 pnpm typecheck              # TypeScript type checking (tsc --noEmit)
 
+# Manual Triggers (reads API_KEY from .env)
+pnpm trigger feed-fetch                    # Trigger feed fetch
+pnpm trigger daily-summary [YYYY-MM-DD]    # Trigger daily summary (default: yesterday)
+pnpm trigger weekly-summary [YYYY-MM-DD]   # Trigger weekly digest (default: last Sunday)
+
 # Deployment
 pnpm deploy                 # Deploy to Cloudflare Workers
 # First-time setup: Create queues before deploying
-# wrangler queues create briefings-feed-fetch
-# wrangler queues create briefings-daily-summary-initiator
-# wrangler queues create briefings-daily-summary-processor
-# wrangler queues create briefings-weekly-digest
+# npx wrangler queues create briefings-feed-fetch
+# npx wrangler queues create briefings-daily-summary-initiator
+# npx wrangler queues create briefings-daily-summary-processor
+# npx wrangler queues create briefings-weekly-digest
 ```
 
 ## Architecture

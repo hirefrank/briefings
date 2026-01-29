@@ -152,7 +152,7 @@ Defined in `src/types/env.d.ts`, configured in `wrangler.toml`:
 
 - API key authentication on all mutating and operational endpoints
 - Timing-safe key comparison to prevent timing attacks
-- Secrets managed via Wrangler (`wrangler secret put`)
+- Secrets managed via Wrangler (`npx wrangler secret put`)
 - No direct database exposure
 - Input validation at all boundaries
 
@@ -235,24 +235,67 @@ Edit `wrangler.toml` and replace:
 Edit `.env` with your values:
 
 ```bash
-# Required
-GEMINI_API_KEY=your-gemini-api-key
+# ============================================================================
+# REQUIRED
+# ============================================================================
 
-# Optional (for email delivery)
-# RESEND_API_KEY=re_your_key
+# Google Gemini API Key (required for AI summarization)
+# Get your key at: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# API Key for HTTP endpoint authentication (required)
+# All POST /api/run/* endpoints require this header: X-API-Key: your-api-key
+API_KEY=your-secure-api-key-min-16-chars
+
+# ============================================================================
+# OPTIONAL - Email Delivery
+# ============================================================================
+
+# Resend API Key (for weekly digest emails)
+# RESEND_API_KEY=re_your_api_key_here
+
+# Email From Address (must be verified domain in Resend)
 # EMAIL_FROM=briefings@yourdomain.com
-# EMAIL_TO=you@example.com
+
+# Email To Address (comma-separated for multiple recipients)
+# EMAIL_TO=you@example.com,team@example.com
+
+# Email Subject Prefix (default: [Briefings])
+# EMAIL_SUBJECT_PREFIX=[Briefings]
+
+# ============================================================================
+# OPTIONAL - Development
+# ============================================================================
+
+# Environment (development | staging | production)
+# Affects auth behavior - development mode skips auth if no key set
+# ENVIRONMENT=production
+
+# Log Level (debug, info, warn, error)
+# LOG_LEVEL=info
 ```
 
 #### 4. Set Cloudflare Secrets
 
+For production, set secrets via Wrangler (more secure than `.env`):
+
 ```bash
-# Set Gemini API key as secret
+# Required: Gemini API key for AI summarization
 echo "your-gemini-api-key" | npx wrangler secret put GEMINI_API_KEY
 
-# Optional: Set Resend API key
-# echo "your-resend-key" | wrangler secret put RESEND_API_KEY
+# Required: API key for HTTP endpoint authentication
+# Generate a secure key (minimum 16 characters recommended)
+API_KEY="briefings-$(openssl rand -hex 16)"
+echo "$API_KEY" | npx wrangler secret put API_KEY
+# Save this key - you'll need it for all API requests via X-API-Key header
+
+# Optional: Resend API key for email delivery
+# echo "re_your_key" | npx wrangler secret put RESEND_API_KEY
 ```
+
+**Important:** Save your `API_KEY` somewhere secure (password manager). You'll need it to trigger manual operations via the HTTP API.
+
+**Note:** Non-sensitive vars like `EMAIL_FROM`, `EMAIL_TO`, `EMAIL_SUBJECT_PREFIX`, `ENVIRONMENT`, and `LOG_LEVEL` can be set in `wrangler.toml [vars]` section instead.
 
 ### Database Setup
 
@@ -272,10 +315,10 @@ pnpm sync:feeds
 
 ```bash
 # First-time setup: Create queues (run once)
-wrangler queues create briefings-feed-fetch
-wrangler queues create briefings-daily-summary-initiator
-wrangler queues create briefings-daily-summary-processor
-wrangler queues create briefings-weekly-digest
+npx wrangler queues create briefings-feed-fetch
+npx wrangler queues create briefings-daily-summary-initiator
+npx wrangler queues create briefings-daily-summary-processor
+npx wrangler queues create briefings-weekly-digest
 
 # Deploy to Cloudflare Workers
 pnpm run deploy
@@ -283,6 +326,31 @@ pnpm run deploy
 # Verify deployment
 curl https://your-worker.workers.dev/health
 ```
+
+## API Authentication
+
+All mutating and operational HTTP endpoints require authentication via the `X-API-Key` header.
+
+### Setting Up API Key
+
+1. Generate a secure API key (minimum 16 characters recommended)
+2. Set it as a Cloudflare secret:
+   ```bash
+   echo "your-secure-api-key" | npx wrangler secret put API_KEY
+   ```
+
+### Using API Key
+
+Include the key in all POST requests to `/api/run/*` endpoints:
+
+```bash
+curl -X POST https://your-worker.workers.dev/api/run/feed-fetch \
+  -H "X-API-Key: your-api-key"
+```
+
+### Development Mode
+
+If `ENVIRONMENT=development` and no `API_KEY` is configured, the middleware will log a warning but allow requests. This is useful for local testing but **never use in production**.
 
 ## Usage
 
@@ -298,24 +366,42 @@ pnpm sync:feeds
 Or add feeds directly to the D1 database using the Cloudflare dashboard or CLI:
 
 ```bash
-wrangler d1 execute DB --remote --command="INSERT INTO Feed (id, name, url, isActive) VALUES (...)"
+npx wrangler d1 execute DB --remote --command="INSERT INTO Feed (id, name, url, isActive) VALUES (...)"
 ```
 
 ### Manual Triggers
 
-You can manually trigger operations via HTTP endpoints:
+Use the CLI trigger command (automatically reads API_KEY from `.env`):
 
 ```bash
 # Fetch all feeds
-curl -X POST https://your-worker.workers.dev/run/feed-fetch
+pnpm trigger feed-fetch
+
+# Generate daily summary for yesterday (or specific date)
+pnpm trigger daily-summary
+pnpm trigger daily-summary 2025-01-28
+
+# Generate weekly digest for last Sunday (or specific date)
+pnpm trigger weekly-summary
+pnpm trigger weekly-summary 2025-01-26
+```
+
+Or use curl directly with your API key:
+
+```bash
+# Fetch all feeds
+curl -X POST https://your-worker.workers.dev/api/run/feed-fetch \
+  -H "X-API-Key: your-api-key"
 
 # Generate daily summary
-curl -X POST https://your-worker.workers.dev/run/daily-summary \
+curl -X POST https://your-worker.workers.dev/api/run/daily-summary \
+  -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{"date": "2025-01-18"}'
 
 # Generate weekly digest
-curl -X POST https://your-worker.workers.dev/run/weekly-digest \
+curl -X POST https://your-worker.workers.dev/api/run/weekly-summary \
+  -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{"weekEndDate": "2025-01-19"}'
 ```
@@ -405,7 +491,7 @@ pnpm run db:migrate
 pnpm sync:feeds
 
 # View database in browser (requires browser login)
-wrangler d1 execute DB --remote --command="SELECT * FROM Feed LIMIT 10"
+npx wrangler d1 execute DB --remote --command="SELECT * FROM Feed LIMIT 10"
 ```
 
 ## Email Delivery (Optional)
@@ -424,7 +510,7 @@ EMAIL_TO = "you@example.com,team@example.com"  # comma-separated
 EMAIL_SUBJECT_PREFIX = "[Briefings]"  # Optional - prefix for email subjects
 
 # As Cloudflare secret
-echo "your-resend-api-key" | wrangler secret put RESEND_API_KEY
+echo "your-resend-api-key" | npx wrangler secret put RESEND_API_KEY
 ```
 
 **Email Subject Customization:**
@@ -486,7 +572,7 @@ pnpm run tail
 # Visit: Cloudflare Dashboard > Queues
 
 # Check D1 database
-wrangler d1 execute DB --remote --command="SELECT COUNT(*) FROM Feed"
+npx wrangler d1 execute DB --remote --command="SELECT COUNT(*) FROM Feed"
 ```
 
 ## Troubleshooting
@@ -513,7 +599,7 @@ If queues aren't processing:
 
 ```bash
 # Check migrations status
-wrangler d1 migrations list DB
+npx wrangler d1 migrations list DB
 
 # Force re-apply migrations
 pnpm run db:migrate

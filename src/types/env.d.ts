@@ -5,7 +5,6 @@ declare global {
 
     // KV Namespaces
     BRIEFINGS_CONFIG_KV: KVNamespace;
-    PROMPTS_KV?: KVNamespace;
 
     // R2 Buckets
     briefings_md_output: R2Bucket;
@@ -19,13 +18,10 @@ declare global {
     // Secrets
     GEMINI_API_KEY: string;
     API_KEY?: string;
-    ADMIN_API_KEY?: string;
     RESEND_API_KEY?: string;
 
     // Environment Variables
-    TZ?: string;
     LOG_LEVEL?: string;
-    R2_ENABLED?: string;
     EMAIL_FROM?: string;
     EMAIL_TO?: string;
     EMAIL_SUBJECT_PREFIX?: string;

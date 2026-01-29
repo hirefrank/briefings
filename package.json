@@ -10,6 +10,7 @@
     "tail": "wrangler tail",
     "db:migrate": "wrangler d1 migrations apply DB --remote",
     "sync:feeds": "tsx src/scripts/sync-feeds.ts",
+    "trigger": "tsx scripts/trigger.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest --watch",

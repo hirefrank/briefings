@@ -18,7 +18,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 /**
  * Middleware to require API key authentication
- * Checks for X-API-Key header and validates against ADMIN_API_KEY secret
+ * Checks for X-API-Key header and validates against API_KEY secret
  */
 export async function requireApiKey(
   c: Context<{ Bindings: Env; Variables: { authenticated?: boolean } }>,
@@ -34,8 +34,7 @@ export async function requireApiKey(
     );
   }
 
-  // Check both API_KEY and ADMIN_API_KEY for backward compatibility
-  const validApiKey = c.env.API_KEY || c.env.ADMIN_API_KEY;
+  const validApiKey = c.env.API_KEY;
 
   if (!validApiKey) {
     // If no API key is configured, log warning but allow request in development
@@ -65,7 +64,7 @@ export async function checkApiKey(
   next: Next
 ) {
   const apiKey = c.req.header('X-API-Key');
-  const validApiKey = c.env.API_KEY || c.env.ADMIN_API_KEY;
+  const validApiKey = c.env.API_KEY;
 
   if (!validApiKey || !apiKey) {
     c.set('authenticated', false);
