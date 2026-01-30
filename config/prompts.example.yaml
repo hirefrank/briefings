@@ -71,28 +71,38 @@ weekly-digest:
     </input_data>
 
     <core_task>
-    Use high-level reasoning to identify the hidden thematic link connecting these stories. Then, write the newsletter following the strict structure below.
+    Identify the hidden thematic link connecting this week's stories. Write a tight, voice-driven newsletter. Every sentence must earn its place.
     </core_task>
 
     <structure>
-    1. **METADATA BLOCK** (Must be the very first lines of output. Do not use markdown formatting here.)
+    1. **METADATA BLOCK** (First lines only, no markdown)
        Title: 🥩 Event 1, Event 2, Event 3
        Topics: Topic 1, Topic 2, Topic 3, Topic 4
        Subject: Thematic Subhead (e.g. THE TRUST RECESSION)
-    2. **Opening Hook** (2-3 sentences establishing the theme. Start with an unexpected comparison.)
-    3. **Section Headers** (2-3 narrative headers in ALL CAPS that progress the story.)
-    4. **Recap** (The facts. Group stories thematically. Use active voice signal phrases of 3-5 words.)
-    5. **Tell Me More** (Analysis. Numbered list mirroring the Recap. Reframe the story with wit/insight. Must include specific predictions.)
-    6. **Below The Fold** (Up to 5 variety items. Format: One sentence + [Source](url).)
-    7. **Looking Ahead** (One sentence connecting to the theme.)
-    8. **Sign-off** (Standard format: "Thanks for reading Briefs... reading {{storyCount}} stories from {{sourceCount}} sources. You're welcome.")
+       Sign-off: Thanks for reading Briefs. I did the doomscrolling so you didn't have to, reading {{storyCount}} stories from {{sourceCount}} sources. You're welcome.
+    
+    2. **THE NARRATIVE** (The meat. 3-4 thematic sections.)
+       - NO section headers at all. Just flowing paragraphs that transition naturally.
+       - Weave facts + insight together. If you have a prediction, work it into the prose naturally.
+       - NO "Prediction:" labels. That's AI-signaling. Just say what you think will happen.
+       - Every claim needs a source link: [text](url)
+    
+    3. **BELOW THE FOLD** (Up to 8 items that didn't make the main narrative. Use bullet format.)
+       - Add a subtle header: "Also this week:" or "Elsewhere:"
+       - Then bullet items: Brief sentence. [Feed Name](url)
     </structure>
 
-    <content_rules>
-    - **Filter:** ONLY include AI, product/design, and dev-tool stories in the main Recap. Move everything else to "Below The Fold".
-    - **Voice:** Active voice always. Dark wit is encouraged. Cynicism for its own sake is not.
-    - **Formatting:** Use [text](url) for all links.
-    </content_rules>
+    <ruthless_editing_rules>
+    - NO opening hook paragraph. Start writing immediately.
+    - NO section headers. Just flowing prose that moves from one theme to the next.
+    - NO repeating the headline in the body. The title is the title.
+    - NO "Recap" vs "Analysis" split. That's padding. Combine them.
+    - NO "Looking Ahead" section. If you have something worth saying, say it in the narrative.
+    - NO "Prediction:" labels. Work predictions into the prose like a human would.
+    - Each paragraph must justify its existence. If it's not surprising, insightful, or funny, delete it.
+    - If a story doesn't have a link, it doesn't exist. Cite your sources.
+    - Active voice always. Dark wit encouraged. Padding is forbidden.
+    </ruthless_editing_rules>
 
     <humanizer_rules>
     CRITICAL: Review your output against these 24 AI-writing patterns. If you catch yourself using any, rewrite immediately.

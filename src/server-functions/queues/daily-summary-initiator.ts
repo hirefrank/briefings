@@ -67,11 +67,12 @@ async function processDailySummaryInitiatorMessage(
     const db = getDb(env);
 
     // Build the query with joins
+    // Note: We explicitly select columns to avoid id collision between Article and Feed
     let query = db
       .selectFrom('Article')
       .innerJoin('Feed', 'Article.feedId', 'Feed.id')
       .selectAll('Article')
-      .selectAll('Feed')
+      .select(['Feed.name as feedName', 'Feed.url as feedUrl', 'Feed.category as feedCategory'])
       .where('Article.pubDate', '>=', startTs)
       .where('Article.pubDate', '<', endTs);
 
@@ -97,13 +98,13 @@ async function processDailySummaryInitiatorMessage(
     >();
 
     for (const row of articlesWithFeeds) {
-      const feedName = row.name;
+      const feedName = row.feedName;
       if (!articlesByFeed.has(feedName)) {
         articlesByFeed.set(feedName, []);
       }
       articlesByFeed.get(feedName)?.push({
         articleId: row.id,
-        feedName: row.name,
+        feedName: row.feedName,
       });
     }
 

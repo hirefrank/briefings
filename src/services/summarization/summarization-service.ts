@@ -86,9 +86,13 @@ export class SummarizationService implements ISummarizationService {
         }
       );
 
+      // Get feedId from first article
+      const feedId = articlesToSummarize[0]?.feed?.id || 'unknown';
+
       const structuredSummary = this.assembleStructuredSummary(
         generatedContent,
         articlesToSummarize,
+        feedId,
         feedName,
         date,
         startTime
@@ -286,7 +290,7 @@ export class SummarizationService implements ISummarizationService {
           summaryContent: summary.summaryContent,
           structuredContent: summary.structuredContent || null,
           schemaVersion: summary.schemaVersion || null,
-          sentiment: summary.sentiment || null,
+          sentiment: summary.sentiment ?? null,
           topicsList: summary.topicsList || null,
           entityList: summary.entityList || null,
           articleCount: summary.articleCount || null,
@@ -572,13 +576,14 @@ export class SummarizationService implements ISummarizationService {
    *   [blank line]
    *   [rest of content]
    */
-  parseDigestMetadata(content: string): { title: string; topics: string[]; cleanContent: string } {
+  parseDigestMetadata(content: string): { title: string; topics: string[]; signOff: string; cleanContent: string } {
     const lines = content.split('\n');
     let title = 'Weekly Briefing';
     let topics: string[] = [];
+    let signOff = '';
     let endIndex = 0;
 
-    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    for (let i = 0; i < Math.min(lines.length, 15); i++) {
       const line = lines[i].trim();
       if (line.startsWith('Title:')) {
         title = line.replace('Title:', '').trim();
@@ -586,6 +591,8 @@ export class SummarizationService implements ISummarizationService {
         topics = line.replace('Topics:', '').split(',').map(t => t.trim()).filter(t => t);
       } else if (line.startsWith('Subject:')) {
         // Subject line is optional metadata, don't parse it separately
+      } else if (line.startsWith('Sign-off:')) {
+        signOff = line.replace('Sign-off:', '').trim();
       }
 
       if (line === '' && i > 0) {
@@ -597,10 +604,11 @@ export class SummarizationService implements ISummarizationService {
     this.logger.info('Parsed digest metadata', {
       title,
       topicCount: topics.length,
+      hasSignOff: !!signOff,
       contentLength: content.length,
     });
 
-    return { title, topics, cleanContent: lines.slice(endIndex).join('\n').trim() };
+    return { title, topics, signOff, cleanContent: lines.slice(endIndex).join('\n').trim() };
   }
 
   /**
@@ -769,7 +777,7 @@ Please analyze these articles and provide a structured response with the followi
 1. **Headline**: One compelling, specific line (max 120 chars) that captures the day's main theme
 2. **Summary**: 2-3 informative paragraphs covering all major stories with key details
 3. **Key Points**: 3-7 most important takeaways as clear, actionable bullet points
-4. **Sentiment Analysis**: Overall mood of the news (-1 to 1 scale) with breakdown
+4. **Sentiment Analysis**: Overall mood of the news (-1 to 1 scale) with breakdown. BE BOLD: Most tech news is neutral (0), but look for positive stories (0.3 to 0.8) about breakthroughs, launches, or human triumphs, and negative stories (-0.3 to -0.8) about failures, layoffs, security breaches, or harmful tech. Avoid defaulting to 0 unless the news truly is neutral. Provide specific breakdown of positive/neutral/negative elements.
 5. **Topics**: Main themes with relevance scores and related keywords
 6. **Entities**: Key people, companies, technologies mentioned with context
 7. **Quotes**: Up to 3 most impactful quotes with sources
@@ -828,6 +836,7 @@ Return your response as valid JSON matching the required schema. Do not include 
   private assembleStructuredSummary(
     generated: GeneratedStructuredContent,
     articles: ArticleWithFeed[],
+    feedId: string,
     feedName: string,
     date: Date,
     startTime: number
@@ -844,11 +853,18 @@ Return your response as valid JSON matching the required schema. Do not include 
         }) as const
     );
 
+    // Normalize topics - handle both 'name' and 'theme' fields
+    const normalizedTopics = (generated.topics || []).map((topic) => ({
+      name: topic.name || (topic as { theme?: string }).theme || 'Unknown Topic',
+      relevance: topic.relevance ?? 0.5,
+      keywords: topic.keywords || [],
+    }));
+
     const structuredSummary: StructuredDailySummary = {
       version: '1.0',
       metadata: {
         date: dateStr,
-        feedId: 'unknown',
+        feedId,
         feedName,
         articleCount: articles.length,
         generatedAt: new Date().toISOString(),
@@ -861,7 +877,7 @@ Return your response as valid JSON matching the required schema. Do not include 
       },
       insights: {
         sentiment: generated.sentiment || { overall: 'neutral', score: 0 },
-        topics: generated.topics || [],
+        topics: normalizedTopics,
         entities: generated.entities || [],
         quotes: generated.quotes || [],
       },

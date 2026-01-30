@@ -63,7 +63,7 @@ export interface ISummarizationService {
     previousContext?: string
   ): Promise<string>;
 
-  parseDigestMetadata(content: string): { title: string; topics: string[]; cleanContent: string };
+  parseDigestMetadata(content: string): { title: string; topics: string[]; signOff: string; cleanContent: string };
 
   parseRecapSections(content: string): {
     belowTheFold?: string;

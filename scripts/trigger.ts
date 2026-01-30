@@ -83,8 +83,11 @@ async function main() {
       yesterday.setDate(yesterday.getDate() - 1);
       const date = arg || yesterday.toISOString().split('T')[0];
       
-      console.log(`Triggering daily summary for ${date}...`);
-      await makeRequest(`${env.WORKER_URL}/api/run/daily-summary`, env.API_KEY, { date });
+      // Check for --force flag
+      const force = process.argv.includes('--force');
+      
+      console.log(`Triggering daily summary for ${date}${force ? ' (force)' : ''}...`);
+      await makeRequest(`${env.WORKER_URL}/api/run/daily-summary`, env.API_KEY, { date, force });
       break;
     }
 
@@ -95,8 +98,18 @@ async function main() {
       lastSunday.setDate(today.getDate() - today.getDay());
       const weekEnd = arg || lastSunday.toISOString().split('T')[0];
       
-      console.log(`Triggering weekly digest for week ending ${weekEnd}...`);
-      await makeRequest(`${env.WORKER_URL}/api/run/weekly-summary`, env.API_KEY, { weekEndDate: weekEnd });
+      // Calculate week start (6 days before end for a full week)
+      const weekEndDate = new Date(weekEnd);
+      const weekStartDate = new Date(weekEndDate);
+      weekStartDate.setDate(weekEndDate.getDate() - 6);
+      
+      const weekStart = weekStartDate.toISOString().split('T')[0];
+      
+      console.log(`Triggering weekly digest for week ${weekStart} to ${weekEnd}...`);
+      await makeRequest(`${env.WORKER_URL}/api/run/weekly-summary`, env.API_KEY, { 
+        weekStartDate: weekStart, 
+        weekEndDate: weekEnd 
+      });
       break;
     }
 

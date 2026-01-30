@@ -114,11 +114,25 @@ async function processDailySummaryProcessorMessage(
     }
 
     // Fetch articles by IDs with feed join
+    // Note: We explicitly select Feed columns to avoid id collision with Article
     const articlesWithFeeds = await db
       .selectFrom("Article")
       .innerJoin("Feed", "Article.feedId", "Feed.id")
       .selectAll("Article")
-      .selectAll("Feed")
+      .select([
+        "Feed.id as feedTableId",
+        "Feed.name as feedName",
+        "Feed.url as feedUrl",
+        "Feed.category as feedCategory",
+        "Feed.isActive as feedIsActive",
+        "Feed.isValid as feedIsValid",
+        "Feed.validationError as feedValidationError",
+        "Feed.lastFetchedAt as feedLastFetchedAt",
+        "Feed.lastError as feedLastError",
+        "Feed.errorCount as feedErrorCount",
+        "Feed.createdAt as feedCreatedAt",
+        "Feed.updatedAt as feedUpdatedAt",
+      ])
       .where("Article.id", "in", validatedMessage.articleIds)
       .orderBy("Article.pubDate", "desc")
       .execute();
@@ -146,18 +160,18 @@ async function processDailySummaryProcessorMessage(
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       feed: {
-        id: (row as any).id,
-        name: row.name,
-        url: row.url,
-        category: row.category,
-        isActive: row.isActive,
-        isValid: row.isValid,
-        validationError: row.validationError,
-        lastFetchedAt: row.lastFetchedAt,
-        lastError: row.lastError,
-        errorCount: row.errorCount,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
+        id: row.feedTableId,
+        name: row.feedName,
+        url: row.feedUrl,
+        category: row.feedCategory,
+        isActive: row.feedIsActive,
+        isValid: row.feedIsValid,
+        validationError: row.feedValidationError,
+        lastFetchedAt: row.feedLastFetchedAt,
+        lastError: row.feedLastError,
+        errorCount: row.feedErrorCount,
+        createdAt: row.feedCreatedAt,
+        updatedAt: row.feedUpdatedAt,
       },
     }));
 
@@ -171,9 +185,9 @@ async function processDailySummaryProcessorMessage(
       logger: logger.child({ component: "SummarizationService" }),
     });
 
-    // Generate daily summary
+    // Generate structured daily summary
     const summaryDate = new Date(validatedMessage.date);
-    const summaryContent = await summarizationService.generateDailySummary(
+    const structuredSummary = await summarizationService.generateStructuredDailySummary(
       articleData,
       validatedMessage.feedName,
       summaryDate,
@@ -184,17 +198,24 @@ async function processDailySummaryProcessorMessage(
     // Get feedId from the first article
     const feedId = articlesWithFeeds[0].feedId;
 
+    // Extract structured data for database
+    const summaryContent = structuredSummary.formatting.markdown;
+    const structuredContent = JSON.stringify(structuredSummary);
+    const sentiment = structuredSummary.insights.sentiment.score;
+    const topicsList = structuredSummary.insights.topics.map((t) => t.name).join(", ");
+    const entityList = structuredSummary.insights.entities.map((e) => e.name).join(", ");
+
     // Save daily summary
     const savedSummary = await summarizationService.saveDailySummary(
       {
         feedId,
         summaryDate: toTimestamp(summaryDate)!,
         summaryContent,
-        structuredContent: null,
+        structuredContent,
         schemaVersion: "1.0",
-        sentiment: null,
-        topicsList: null,
-        entityList: null,
+        sentiment,
+        topicsList: topicsList || null,
+        entityList: entityList || null,
         articleCount: articlesWithFeeds.length,
       },
       validatedMessage.articleIds,

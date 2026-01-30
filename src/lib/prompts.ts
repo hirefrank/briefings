@@ -5,6 +5,7 @@
  * To change prompts, edit config/prompts.yaml and redeploy.
  */
 
+import Mustache from 'mustache';
 import promptsYaml from '../../config/prompts.yaml';
 import { parsePromptsConfig, type PromptType } from './config.js';
 
@@ -23,15 +24,8 @@ export function getPrompt(type: PromptType): string {
 
 /**
  * Render a prompt template with Mustache-style variables
+ * Uses proper Mustache library to handle loops ({{#items}}...{{/items}})
  */
 export function renderPrompt(template: string, data: Record<string, unknown>): string {
-  let result = template;
-
-  // Simple Mustache-style variable replacement
-  for (const [key, value] of Object.entries(data)) {
-    const pattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    result = result.replace(pattern, String(value ?? ''));
-  }
-
-  return result;
+  return Mustache.render(template, data);
 }

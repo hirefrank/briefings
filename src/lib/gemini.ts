@@ -123,7 +123,6 @@ export class GeminiClient {
           topP: fullConfig.topP,
           topK: fullConfig.topK,
           maxOutputTokens: fullConfig.maxOutputTokens,
-          ...(fullConfig.thinkingLevel && { thinkingLevel: fullConfig.thinkingLevel }),
         },
         safetySettings: [
           { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },

@@ -98,6 +98,17 @@ async function processWeeklyDigest(
 
   logger.info('Found daily summaries', { count: dailySummaryRows.length });
 
+  // Calculate story and source counts for email footer
+  const storyCount = dailySummaryRows.reduce((sum, row) => sum + (row.articleCount || 0), 0);
+  const uniqueFeedIds = new Set(dailySummaryRows.map(row => row.feedId));
+  const sourceCount = uniqueFeedIds.size;
+
+  logger.info('Weekly digest statistics', {
+    storyCount,
+    sourceCount,
+    dailySummaryCount: dailySummaryRows.length,
+  });
+
   // STEP 2: Fetch historical context from R2
   let previousContext: string | undefined;
   try {
@@ -144,7 +155,7 @@ async function processWeeklyDigest(
   // STEP 4: Parse metadata (Zero latency)
   logger.info('Parsing digest metadata from generated content');
 
-  const { title, topics, cleanContent } = summarizationService.parseDigestMetadata(rawContent);
+  const { title, topics, signOff, cleanContent } = summarizationService.parseDigestMetadata(rawContent);
   const sections = summarizationService.parseRecapSections(cleanContent);
 
   // STEP 5: Save to database
@@ -205,6 +216,9 @@ async function processWeeklyDigest(
         weekStart: format(weekStart, 'yyyy-MM-dd'),
         weekEnd: format(weekEnd, 'yyyy-MM-dd'),
         subjectPrefix: env.EMAIL_SUBJECT_PREFIX,
+        storyCount,
+        sourceCount,
+        signOff: signOff || undefined,
       });
 
       if (emailResult.success) {

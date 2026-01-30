@@ -5,6 +5,7 @@
 
 import { Resend } from 'resend';
 import { marked } from 'marked';
+import { format, parseISO, getWeek } from 'date-fns';
 import { Logger } from './logger.js';
 import { ApiError, ErrorCode } from './errors.js';
 
@@ -57,8 +58,14 @@ export class ResendEmailService {
         from: options.from || this.fromEmail,
       });
 
+      // Format from address with display name
+      const fromAddress = options.from || this.fromEmail;
+      const fromWithName = fromAddress.includes('<') 
+        ? fromAddress 
+        : `Briefings <${fromAddress}>`;
+
       const { data, error } = await this.resend.emails.send({
-        from: options.from || this.fromEmail,
+        from: fromWithName,
         to: options.to.map(r => r.email),
         subject: options.subject,
         html: options.html,
@@ -120,12 +127,18 @@ export class ResendEmailService {
     weekStart: string;
     weekEnd: string;
     subjectPrefix?: string;
+    storyCount: number;
+    sourceCount: number;
+    signOff?: string;
   }): Promise<EmailResult> {
     const html = this.formatWeeklyDigest({
       title: options.title,
       content: options.content,
       weekStart: options.weekStart,
       weekEnd: options.weekEnd,
+      storyCount: options.storyCount,
+      sourceCount: options.sourceCount,
+      signOff: options.signOff,
     });
 
     // Build subject with optional prefix (defaults to [Briefings] if not set)
@@ -152,10 +165,25 @@ export class ResendEmailService {
     content: string;
     weekStart: string;
     weekEnd: string;
+    storyCount: number;
+    sourceCount: number;
+    signOff?: string;
   }): string {
     // Convert markdown to HTML (basic conversion)
     const htmlContent = this.markdownToHtml(options.content);
-
+    
+    // Format dates nicely
+    const startDate = parseISO(options.weekStart);
+    const endDate = parseISO(options.weekEnd);
+    const weekNumber = getWeek(startDate);
+    const year = startDate.getFullYear();
+    
+    const formattedStart = format(startDate, 'MMM d');
+    const formattedEnd = format(endDate, 'MMM d, yyyy');
+    
+    // Use sign-off from prompt, or build default if not provided
+    const footerText = options.signOff || `Thanks for reading Briefs. I did the doomscrolling so you didn't have to, reading ${options.storyCount} stories from ${options.sourceCount} sources. You're welcome.`;
+    
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -244,15 +272,14 @@ export class ResendEmailService {
 </head>
 <body>
   <div class="container">
-    <h1>${this.escapeHtml(options.title)}</h1>
     <div class="meta">
-      Week of ${options.weekStart} to ${options.weekEnd}
+      Week ${weekNumber} of ${year} • ${formattedStart} – ${formattedEnd}
     </div>
     <div class="content">
       ${htmlContent}
     </div>
     <div class="footer">
-      <p>Thanks for reading! This is your weekly digest of tech and culture stories.</p>
+      <p>${footerText}</p>
     </div>
   </div>
 </body>
@@ -261,9 +288,16 @@ export class ResendEmailService {
 
   /**
    * Convert markdown to HTML using marked
+   * Converts h2 headers (##) to bold text instead of h2 tags for email
    */
   private markdownToHtml(markdown: string): string {
-    return marked.parse(markdown, {
+    // First, convert ## headers to **bold** text
+    const processedMarkdown = markdown.replace(
+      /^##\s+(.+)$/gm,
+      (match, text) => `**${text}**`
+    );
+    
+    return marked.parse(processedMarkdown, {
       gfm: true,      // GitHub-flavored markdown (tables, strikethrough, etc.)
       breaks: true,   // Convert single newlines to <br>
     }) as string;
