@@ -60,3 +60,43 @@ export function parsePromptsConfig(yamlContent: string): Record<PromptType, stri
     'weekly-digest': config['weekly-digest'].template,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Profile config (optional - for personalizing newsletter voice)
+// ---------------------------------------------------------------------------
+
+export function parseProfileConfig(yamlContent: string): string {
+  // Profile is freeform text to inject into prompts
+  return yamlContent.trim();
+}
+
+export function formatProfileForPrompt(profileYaml: string): string {
+  if (!profileYaml || profileYaml.trim().length === 0) {
+    return '';
+  }
+  
+  // Extract key sections for the prompt
+  const lines = profileYaml.split('\n');
+  const relevantLines: string[] = [];
+  let inRelevantSection = false;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Skip comments and empty lines
+    if (trimmed.startsWith('#') || trimmed === '') {
+      continue;
+    }
+    
+    // Start capturing at recipient section
+    if (trimmed === 'recipient:') {
+      inRelevantSection = true;
+    }
+    
+    if (inRelevantSection) {
+      relevantLines.push(line);
+    }
+  }
+  
+  return relevantLines.join('\n').trim();
+}

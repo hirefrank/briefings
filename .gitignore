@@ -28,6 +28,7 @@ Thumbs.db
 # Config files (use *.example.yaml as templates)
 config/feeds.yaml
 config/prompts.yaml
+config/profile.yaml
 
 # Local backups
 backup/

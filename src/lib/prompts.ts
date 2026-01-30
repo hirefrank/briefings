@@ -7,9 +7,11 @@
 
 import Mustache from 'mustache';
 import promptsYaml from '../../config/prompts.yaml';
-import { parsePromptsConfig, type PromptType } from './config.js';
+import profileYaml from '../../config/profile.yaml';
+import { parsePromptsConfig, formatProfileForPrompt, type PromptType } from './config.js';
 
 const prompts = parsePromptsConfig(promptsYaml);
+const profileContext = formatProfileForPrompt(profileYaml);
 
 /**
  * Get prompt template by type
@@ -20,6 +22,14 @@ export function getPrompt(type: PromptType): string {
     throw new Error(`Unknown prompt type: ${type}`);
   }
   return template;
+}
+
+/**
+ * Get recipient profile context for personalizing prompts
+ * Returns formatted profile text or empty string if no profile configured
+ */
+export function getProfileContext(): string {
+  return profileContext;
 }
 
 /**

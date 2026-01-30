@@ -15,7 +15,7 @@ import { Logger } from '../../lib/logger.js';
 import { ApiError, DatabaseError, ErrorCode } from '../../lib/errors.js';
 import { format, subDays, parseISO } from 'date-fns';
 import { DEFAULT_MODELS } from '../../lib/constants.js';
-import { renderPrompt, getPrompt } from '../../lib/prompts.js';
+import { renderPrompt, getPrompt, getProfileContext } from '../../lib/prompts.js';
 
 type ArticleWithFeed = Article & { feed?: Feed };
 
@@ -479,6 +479,7 @@ export class SummarizationService implements ISummarizationService {
         summaryCount: summaries.length,
         storyCount,
         sourceCount: sources.size || summaries.length,
+        profileContext: getProfileContext(),
       };
 
       let prompt = renderPrompt(getPrompt('weekly-digest'), templateContext);

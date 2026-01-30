@@ -1,0 +1,130 @@
+# Profile: Frank Harris
+# Personal briefing profile for Briefings newsletter
+# This file customizes the AI assistant's voice and focus for the specific recipient
+
+recipient:
+  name: Frank Harris
+  role: Executive Product Coach & Former VP of Product
+  location: Brooklyn, New York
+  
+  background:
+    current: Executive Product Coach at hirefrank.com
+    previous:
+      - VP of Product, Platform at Slack (led developer experience, APIs, next-gen platform)
+      - VP of Platform & Growth at InVision
+      - VP of Product at Casper
+      - VP of Product at Betterment
+      - Product Lead at Cover
+      - Group Product Manager at Etsy
+      - UX Designer at Google (self-taught engineer turned designer)
+    experience: 20+ years at intersection of engineering, design, and product
+    
+  expertise:
+    - Product strategy & leadership
+    - Platform & API design
+    - Enterprise SaaS
+    - Developer experience
+    - Team building & scaling
+    - Low-code/no-code platforms
+    - AI & automation
+    
+  communication_style:
+    - Direct and insightful
+    - Values brevity and clarity
+    - Appreciates dark wit without cynicism for its own sake
+    - Likes metaphors and unexpected comparisons
+    - Hates corporate speak and buzzwords
+    - Prefers "show me" over "trust me"
+    
+  product_philosophy:
+    - Reducing friction is paramount
+    - Modularity enables scale
+    - Platform strategy: enable others to solve edge cases
+    - Low-code empowers users
+    - Technical intuition + design sensibility = great product
+    - "Shipping is a feature"
+    - Values action over perfection
+    
+  current_focus:
+    - Coaching product leaders through complexity and growth
+    - Writing about leadership, AI, and shipping
+    - Exploring AI's impact on product development
+    - Automation and workflow design
+    - The future of work and collaboration tools
+    
+  known_interests:
+    - AI/ML product applications (especially practical, not hype)
+    - Developer tools & platforms
+    - Workflow automation
+    - Design systems
+    - Product-led growth
+    - Remote work tools and culture
+    - Brooklyn/NYC tech scene
+    
+  hot_takes:
+    - Skeptical of VR/AR hype unless it solves real problems
+    - Believes most "AI features" are just automation
+    - Thinks modern build pipelines are overcomplicated
+    - Skeptical of crypto/web3 unless there's clear utility
+    - Values pragmatism over innovation theater
+    
+  companies_watching:
+    - Slack (former employer, still interested in platform evolution)
+    - Linear (modern project management)
+    - Figma (design collaboration)
+    - Notion (workspace/knowledge management)
+    - Vercel (developer experience)
+    - OpenAI/Anthropic (practical AI applications)
+    - Stripe (developer-first products)
+    
+  newsletter_context:
+    name: Frank Takeaways
+    description: A mildly entertaining newsletter about notes worth keeping — from leadership lessons to AI prompts to shipping your next thing
+    tone: Sharp takes, metaphors about leadership, prompts that make work easier
+    published_on: Substack
+    
+  briefing_preferences:
+    - Focus on product decisions and strategy implications
+    - Call out patterns across multiple companies
+    - Highlight what's actually working vs. what's just marketing
+    - Surface technical architecture decisions with business impact
+    - Watch for AI applications that are practical, not hype
+    - Pay attention to platform/API changes that enable/disrupt
+    - Flag cultural shifts in tech (remote work, developer experience, etc.)
+    - Connect to coaching insights when relevant
+    
+  what_to_emphasize:
+    - Product strategy implications
+    - Developer experience trends
+    - Platform & API evolution
+    - AI/ML practical applications
+    - Workflow automation
+    - Team/leadership dynamics
+    - Design system maturity
+    - Brooklyn/NYC tech scene
+    
+  what_to_minimize:
+    - Crypto/Web3 unless major utility breakthrough
+    - VR/AR hardware announcements without use cases
+    - Pure financial/market news without product angle
+    - Consumer social media drama
+    - Big tech legal battles (unless product impact)
+    - 
+  personal_notes:
+    - Self-taught engineer who became a designer, then product leader
+    - Known for combining technical depth with design sensibility
+    - "Product leader turned coach"
+    - Likes "mildly entertaining" content that doesn't take itself too seriously
+    - Values "notes worth keeping" — practical, memorable insights
+    - Active on LinkedIn sharing product leadership content
+    - Creates AI prompts and tools (Frankbot)
+    
+# How the assistant should write to Frank:
+# - Assume product leadership context
+# - Reference coaching insights when relevant
+# - Use "you" and direct address
+# - Frame as intelligence sharing between colleagues
+# - Highlight product strategy implications
+# - Connect to platform/developer experience when relevant
+# - Keep it "mildly entertaining" — sharp but not cynical
+# - Surface patterns and predictions that matter for his work
