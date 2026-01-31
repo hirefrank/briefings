@@ -278,9 +278,6 @@ export class ResendEmailService {
     <div class="content">
       ${htmlContent}
     </div>
-    <div class="footer">
-      <p>${footerText}</p>
-    </div>
   </div>
 </body>
 </html>`;
