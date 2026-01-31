@@ -462,7 +462,7 @@ export class SummarizationService implements ISummarizationService {
         weekStartDate: format(dateRange.start, 'yyyy-MM-dd'),
         weekEndDate: format(dateRange.end, 'yyyy-MM-dd'),
         displayDateRange: `${format(dateRange.start, 'MMM d')} - ${format(dateRange.end, 'MMM d, yyyy')}`,
-        summaries: summaries.map((summary) => {
+        dailySummaries: summaries.map((summary) => {
           const dateObj = fromTimestamp(summary.summaryDate);
           return {
             date: dateObj ? format(dateObj, 'yyyy-MM-dd') : 'unknown',
