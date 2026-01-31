@@ -13,7 +13,7 @@ export class SummaryAdapter {
    * Convert structured summary to markdown format for backward compatibility
    */
   static toMarkdown(structured: StructuredDailySummary): string {
-    const { content, insights, metadata } = structured;
+    const { content, insights, metadata, articles } = structured;
 
     let markdown = `# ${content.headline}\n\n`;
 
@@ -49,6 +49,17 @@ export class SummaryAdapter {
         .forEach((quote) => {
           markdown += `> "${quote.text}" - ${quote.source}\n\n`;
         });
+    }
+
+    // Add sources section with URLs
+    if (articles && articles.length > 0) {
+      markdown += `## Sources\n`;
+      articles.forEach((article) => {
+        if (article.url && article.url !== '#') {
+          markdown += `- [${article.title}](${article.url})\n`;
+        }
+      });
+      markdown += '\n';
     }
 
     // Add metadata footer

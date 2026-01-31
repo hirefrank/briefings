@@ -776,21 +776,20 @@ ${articleContext}${contextSummary}
 Please analyze these articles and provide a structured response with the following:
 
 1. **Headline**: One compelling, specific line (max 120 chars) that captures the day's main theme
-2. **Summary**: 2-3 informative paragraphs covering all major stories with key details
-3. **Key Points**: 3-7 most important takeaways as clear, actionable bullet points
-4. **Sentiment Analysis**: Overall mood of the news (-1 to 1 scale) with breakdown. BE BOLD: Most tech news is neutral (0), but look for positive stories (0.3 to 0.8) about breakthroughs, launches, or human triumphs, and negative stories (-0.3 to -0.8) about failures, layoffs, security breaches, or harmful tech. Avoid defaulting to 0 unless the news truly is neutral. Provide specific breakdown of positive/neutral/negative elements.
-5. **Topics**: Main themes with relevance scores and related keywords
-6. **Entities**: Key people, companies, technologies mentioned with context
-7. **Quotes**: Up to 3 most impactful quotes with sources
+2. **Summary**: 2-3 informative paragraphs covering all major stories. CRITICAL: Include source citations with markdown links like [Source Name](URL) for every major claim or story. Example: "Google announced new AI features [The Verge](https://theverge.com/...)."
+3. **Key Points**: 3-7 most important takeaways. CRITICAL: Each point must end with a source citation in format: "Point text. [Source Name](URL)"
+4. **Sentiment Analysis**: Overall mood (-1 to 1) with breakdown. Be bold with scoring.
+5. **Topics**: Main themes with relevance scores
+6. **Entities**: Key people, companies, technologies
+7. **Quotes**: Up to 3 impactful quotes with sources
 
-Focus on:
-- Accuracy and factual precision
-- Clear, professional language
-- Actionable insights for readers
-- Connections between stories
-- Proper attribution of quotes and claims
+CRITICAL RULES:
+- EVERY citation must use the URL provided in the article Source field
+- Format: [Publication Name](actual_url_from_source_field)
+- Never omit URLs - they are required for every source mention
+- Use the exact URL from the Source field, never fabricate URLs
 
-Return your response as valid JSON matching the required schema. Do not include markdown formatting or code blocks.`;
+Return as valid JSON. Do not include markdown code blocks.`;
   }
 
   /**
