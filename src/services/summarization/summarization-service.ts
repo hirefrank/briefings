@@ -206,7 +206,7 @@ export class SummarizationService implements ISummarizationService {
       try {
         const response = await this.geminiClient.generateContent(prompt, {
           model: DEFAULT_MODELS.DAILY_SUMMARY,
-          temperature: 1.0,
+          temperature: 0.7,
           thinkingLevel: 'LOW',
           maxOutputTokens: 16384,
         });
@@ -511,7 +511,7 @@ export class SummarizationService implements ISummarizationService {
         response = await this.geminiClient.generateWithRetry(truncatedPrompt, {
           config: {
             model: DEFAULT_MODELS.WEEKLY_SUMMARY,
-            temperature: 1.0,
+            temperature: 0.8,
             thinkingLevel: 'HIGH',
             maxOutputTokens: 65536,
           },
@@ -533,7 +533,7 @@ export class SummarizationService implements ISummarizationService {
         response = await this.geminiClient.generateWithRetry(prompt, {
           config: {
             model: DEFAULT_MODELS.WEEKLY_SUMMARY,
-            temperature: 1.0,
+            temperature: 0.8,
             thinkingLevel: 'HIGH',
             maxOutputTokens: 65536,
           },

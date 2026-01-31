@@ -29,7 +29,7 @@ export const DEFAULT_MODELS = {
 // ============================================================================
 
 export const DEFAULT_GENERATION_CONFIG = {
-  temperature: 0.7,
+  temperature: 0.8,
   topP: 0.95,
   topK: 40,
   maxOutputTokens: 8192,
