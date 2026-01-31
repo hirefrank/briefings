@@ -1,0 +1,78 @@
+graph TB
+    subgraph Sources["📡 RSS Sources"]
+        RSS1[Tech Blogs]
+        RSS2[News Sites]
+        RSS3[Substacks]
+        RSS4[Company Blogs]
+    end
+
+    subgraph Ingestion["🔄 Ingestion Layer"]
+        Cron["⏰ Cron Trigger<br/>Every 4 hours"]
+        FeedQueue["📥 Feed Fetch Queue<br/>briefings-feed-fetch"]
+        Parser["📝 RSS Parser"]
+    end
+
+    subgraph Storage["💾 Storage Layer"]
+        D1[("📊 D1 Database<br/>SQLite")]
+        KV["🔑 KV Namespace<br/>Config"]
+        R2["📦 R2 Bucket<br/>Historical Context"]
+    end
+
+    subgraph Processing["⚙️ Processing Layer"]
+        DailyInit["📅 Daily Summary<br/>Initiator Queue"]
+        DailyProc["🤖 Daily Summary<br/>Processor Queue"]
+        WeeklyQ["📰 Weekly Digest<br/>Queue"]
+    end
+
+    subgraph AI["🧠 AI Services<br/>Google Gemini"]
+        Flash["⚡ Flash Model<br/>Daily Summaries<br/>Temp: 0.7"]
+        Pro["🎯 Pro Model<br/>Weekly Digests<br/>Temp: 0.85"]
+    end
+
+    subgraph Output["📤 Output Layer"]
+        Email["✉️ Resend<br/>Email Delivery"]
+        API["🔌 HTTP API<br/>Manual Triggers"]
+    end
+
+    subgraph Personalization["👤 Personalization"]
+        Profile["📋 profile.yaml<br/>Recipient Profile"]
+        Prompts["📝 prompts.yaml<br/>AI Prompts"]
+    end
+
+    RSS1 --> FeedQueue
+    RSS2 --> FeedQueue
+    RSS3 --> FeedQueue
+    RSS4 --> FeedQueue
+    
+    Cron --> FeedQueue
+    FeedQueue --> Parser
+    Parser --> D1
+    
+    D1 --> DailyInit
+    DailyInit --> DailyProc
+    DailyProc --> Flash
+    Flash --> D1
+    
+    D1 --> WeeklyQ
+    WeeklyQ --> Pro
+    Pro --> R2
+    R2 --> Email
+    
+    Profile --> Pro
+    Prompts --> Flash
+    Prompts --> Pro
+    
+    API --> FeedQueue
+    API --> DailyInit
+    API --> WeeklyQ
+    
+    KV -.-> Flash
+    KV -.-> Pro
+
+    style Sources fill:#e1f5fe
+    style Ingestion fill:#fff3e0
+    style Storage fill:#e8f5e9
+    style Processing fill:#fce4ec
+    style AI fill:#f3e5f5
+    style Output fill:#fff8e1
+    style Personalization fill:#e0f2f1
