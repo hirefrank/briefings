@@ -6,6 +6,11 @@
 
 - 📰 **RSS Feed Aggregation** - Automatically fetch articles from configured RSS feeds every 4 hours
 - 🤖 **AI-Powered Summaries** - Generate daily summaries using Google Gemini (Flash model)
+- 👤 **Personalized Briefings** - Recipient profiles for personalized voice and focus
+- 📊 **Structured Summaries** - Daily summaries with sentiment analysis, topics, and entities
+- 🎯 **Anti-Hallucination** - Strict constraints to prevent AI from fabricating stories
+- 🔗 **URL Preservation** - Article URLs preserved through entire pipeline
+- 🌡️ **Smart Temperature Tuning** - Optimized 0.7/0.85 temperatures for accuracy vs creativity
 - 📧 **Weekly Digest Newsletter** - Compile weekly recaps with AI-generated insights (Gemini Pro model)
 - ☁️ **Cloudflare Workers** - Serverless, edge-deployed with queue-based processing
 - 💾 **D1 Database** - SQLite-based storage for articles, feeds, and summaries
@@ -59,6 +64,8 @@
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+Personalization is configured via `config/profile.yaml` which is loaded at runtime to customize the newsletter voice and focus areas for each recipient.
 
 ### Queue Pipeline
 
@@ -138,6 +145,102 @@ Schema defined in `src/db/types.ts`:
 #### R2 Bucket
 
 `briefings_md_output` for storing digest history, used as context for future digests.
+
+### Personalization
+
+The personalization system tailors newsletter voice and focus areas based on recipient profiles. This creates a more engaging, personally relevant briefing experience.
+
+**Configuration:**
+
+Create a personalized profile by copying the example file:
+
+```bash
+cp config/profile.example.yaml config/profile.yaml
+```
+
+Edit `config/profile.yaml` with your preferences:
+
+- **Background** - Professional experience and context
+- **Expertise** - Areas of knowledge and skill
+- **Interests** - Topics you want to focus on
+- **Hot Takes** - Controversial opinions to shape voice
+- **Companies Watching** - Organizations to track closely
+- **Preferences** - Content length and detail level
+
+**Privacy Note:** `config/profile.yaml` is gitignored by default to keep personal preferences private. Never commit your actual profile to version control.
+
+The profile is loaded at build time and injected into AI prompts, customizing:
+- Summary tone and voice
+- Which stories get emphasized
+- How technical explanations are pitched
+- Topic prioritization in the weekly digest
+
+### Structured Summaries
+
+Daily summaries now include rich structured metadata beyond plain text:
+
+**Schema Fields:**
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `headline` | Catchy 2-5 word summary | "AI Red Flags Emerge" |
+| `key_points` | 3-5 bullet points capturing main ideas | `["Point 1", "Point 2"]` |
+| `sentiment_score` | -1.0 to 1.0 with breakdown | `{"overall": 0.6, "business": 0.8, ...}` |
+| `topics` | Extracted topic tags | `["ai", "cloud", "security"]` |
+| `entities` | Companies, people, products mentioned | `["OpenAI", "Satya Nadella"]` |
+| `notable_quotes` | Memorable quotes with attribution | `["Quote text — Author"]` |
+| `schema_version` | Version for future evolution | `1` |
+
+**Sentiment Breakdown:**
+
+The sentiment score ranges from -1 (very negative) to 1 (very positive) across multiple dimensions:
+
+- **overall** - General sentiment of the story
+- **business** - Impact on companies/industry
+- **market** - Market reaction/implications
+- **innovation** - Technology advancement sentiment
+- **regulatory** - Policy/regulatory implications
+- **social** - Social/public perception
+
+**Benefits:**
+
+- Better searchability and filtering
+- Enables future features like sentiment-based filtering
+- Structured data for analysis and visualization
+- Preserved context through the entire pipeline
+
+### Anti-Hallucination Features
+
+Briefings implements multiple safeguards to prevent AI hallucination and ensure summaries accurately reflect source material:
+
+**Temperature Reduction:**
+- Reduced from 1.0 to 0.7-0.85 range
+- Daily summaries: 0.7 (highly factual)
+- Weekly digests: 0.85 (balanced creativity)
+- Prevents temperature-induced fabrication
+
+**Strict Prompt Constraints:**
+
+Prompts include explicit guardrails:
+- **"ONLY write about stories in the input"** - No external knowledge
+- **"Do NOT make up or infer any details"** - Strict source adherence
+- **Citations required** - Every claim must reference a source article
+
+**URL Validation:**
+
+- All citations must use exact URLs from source articles
+- URLs are preserved through the entire pipeline
+- No paraphrasing without attribution
+- Links are verified before storage
+
+**No Creative Synthesis:**
+
+- Connections between stories must be explicitly stated in sources
+- No invented narratives or trends
+- No speculation beyond what sources provide
+- Fact-grounded summaries only
+
+**Result:** Summaries you can trust—factual, attributed, and grounded in real articles.
 
 ### Cloudflare Bindings
 
@@ -306,6 +409,7 @@ pnpm run db:migrate
 # Copy example configs (edit with your own settings)
 cp config/feeds.example.yaml config/feeds.yaml
 cp config/prompts.example.yaml config/prompts.yaml
+cp config/profile.example.yaml config/profile.yaml
 
 # Sync feeds from YAML to D1 (bidirectional sync)
 pnpm sync:feeds
@@ -561,6 +665,24 @@ AI prompts are loaded from `config/prompts.yaml` at build time:
 - `title-generator` - Generate newsletter titles
 
 Customize these prompts in `config/prompts.yaml` to match your newsletter style. Templates use Mustache-style `{{variable}}` substitution. See `config/prompts.example.yaml` for the full template format.
+
+## Personalization Profile
+
+The personalization profile (`config/profile.yaml`) customizes newsletter voice and content focus:
+
+```yaml
+profile:
+  background: "Product manager at a B2B SaaS company"
+  expertise: ["Product strategy", "AI/ML", "SaaS metrics"]
+  interests: ["AI agents", "Developer tools", "Product-led growth"]
+  hot_takes: ["Most AI demos are just prompt engineering"]
+  companies: ["OpenAI", "Stripe", "Linear"]
+  preferences:
+    content_length: "medium"
+    technical_depth: "high"
+```
+
+Copy from `config/profile.example.yaml` and customize for your preferences. The file is gitignored for privacy—never commit your actual profile.
 
 ## Monitoring
 
